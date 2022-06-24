@@ -1,3 +1,10 @@
+#[
+Get Growi Page info
+
+Uasge:
+  growi /path/to/page
+]#
+
 import std/uri
 import std/os
 import std/httpclient
@@ -47,7 +54,8 @@ proc get(path: string): Response =
 
   return res
 
-let res = get("/社内標準")
+let args = paramStr(1)
+let res = get(args)
 let js = parseJson(res.body)
 let prt = js.pretty()
 echo prt

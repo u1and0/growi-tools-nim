@@ -4,6 +4,7 @@ import std/os
 import std/httpclient
 import std/json
 import strutils
+import strformat
 ## Get token from https://demo.growi.org/me
 const ACCESS_TOKEN = getEnv("GROWI_ACCESS_TOKEN")
 ## https://demo.growi.org/
@@ -29,6 +30,7 @@ type
   Data = object
     page: Page
     exist: bool
+    error: string
 
 proc get(path: string): Response =
   var client = newHttpClient()
@@ -41,20 +43,30 @@ proc get(path: string): Response =
 
 proc initData(path: string): Data =
   let res: Response = get(path)
-  if res.status != $Http200:
-    result.exist = false
-    return
-  # underscoreをobjectのfield名にできない仕様のせいで
-  # stringを一部underscoreなしにする
-  let jsonStr = res.body.multiReplace(
-    ("\"_id\":", "\"id\":")
-  )
-  result.page = to(parseJson(jsonStr)["page"], Page)
-  result.exist = true
+  case res.status:
+    of $Http404:
+      result.exist = false
+      result.error = $parseJson(res.body)["errors"]
+    of $Http200:
+      # underscoreをobjectのfield名にできない仕様のせいで
+      # stringを一部underscoreなしにする
+      let jsonStr = res.body.multiReplace(
+        ("\"_id\":", "\"id\":")
+      )
+      result.page = to(parseJson(jsonStr)["page"], Page)
+      result.exist = true
+    else:
+      # result.error = to(parseJson(res.body)["errors"], Error)
+      var e: ref HttpRequestError
+      new(e)
+      e.msg = $parseJson(res.body)["errors"]
+      raise e
 
 if is_main_module:
   let data = initData(paramStr(1))
   if data.exist:
-    echo data.page.revision.body
-    echo data.page.revision.id
-  else: echo "Page not exist"
+    echo "Page body: ", data.page.revision.body
+  else:
+    let msg = fmt"Page not exist {data.error}"
+    echo msg
+  echo pretty(%data)

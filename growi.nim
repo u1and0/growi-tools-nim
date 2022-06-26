@@ -62,11 +62,25 @@ proc initData(path: string): Data =
       e.msg = $parseJson(res.body)["errors"]
       raise e
 
+proc create(self: Data, body:string): Response=
+  if self.exist: return
+  var client = newHttpClient()
+  client.headers = newHttpHeaders({"Content-Type": "application/json"})
+  var url = parseUri(URL)
+  url.path = "_api/v3/pages"
+  let data =%{
+    "body":body,
+    "path":self.page.path,
+    "access_token":ACCESS_TOKEN,
+  }
+  client.request(url, HttpMethod=HttpPost, body=$data)
+
+
 if is_main_module:
   let data = initData(paramStr(1))
   if data.exist:
     echo "Page body: ", data.page.revision.body
+    echo pretty(%data)
   else:
-    let msg = fmt"Page not exist {data.error}"
-    echo msg
-  echo pretty(%data)
+    var res = data.create("this is a test\n for API")
+    echo pretty(%res.body)

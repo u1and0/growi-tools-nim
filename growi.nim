@@ -34,7 +34,7 @@ type
     exist: bool
     error: string
 
-proc create(d: Data, body: string): Response =
+proc create(self: Data, body: string): Response =
   ## data.create method
   let client = newHttpClient()
   client.headers = newHttpHeaders({"Content-Type": "application/json"})
@@ -42,23 +42,24 @@ proc create(d: Data, body: string): Response =
   url.path = "_api/v3/pages"
   let param = %* {
     "body": body,
-    "path": d.page.path,
+    "path": self.page.path,
     "access_token": ACCESS_TOKEN
   }
   client.request(url, httpMethod = HttpPost, body = $param)
 
-
-proc get(path: string): Response =
+proc get(self: Data): Response =
   ## Get page body
   var client = newHttpClient()
   client.headers = newHttpHeaders({"Content-Type": "application/json"})
   var url = parseUri(URL)
   url.path = "_api/v3/page"
-  let q = {"access_token": ACCESS_TOKEN, "path": path}
+  let q = {"access_token": ACCESS_TOKEN, "path": self.page.path}
   client.get(url ? q)
 
 proc initData(path: string): Data =
-  let res: Response = get(path)
+  var data = Data()
+  data.page.path = path
+  let res: Response = data.get()
   case res.status:
     of $Http404:
       result.page.path = path

@@ -69,6 +69,13 @@ proc update(self: Data, body: string): Response =
   }
   client.request(url, httpMethod = HttpPost, body = $param)
 
+proc post(self: Data, body: string): Response =
+  ## article update or create
+  if self.exist:
+    self.update(body)
+  else:
+    self.create(body)
+
 proc get(self: Data): Response =
   ## Get page body
   var client = newHttpClient()
@@ -94,23 +101,17 @@ proc initData(path: string): Data =
     else:
       result.exist = false
       result.error = $parseJson(res.body)["errors"]
+      result.page.path = path
 
 if is_main_module:
   let data = initData(paramStr(1))
-  if data.exist and paramCount() == 1:
+  if paramCount() == 1 and data.exist:
     # GET method
     echo data.page.revision.body
   elif paramCount() == 2:
     # POST method
-    var res: Response
-    if data.exist:
-      res = data.update(paramStr(2))
-    else:
-      res = data.create(paramStr(2))
-    if res.status == $Http200:
-      echo res.body
-    else:
-      echo res.status & "\n" & res.body
+    let res: Response = data.post(paramStr(2))
+    echo res.status & "\n" & res.body
   else:
     echo pretty(%data)
     echo data.error

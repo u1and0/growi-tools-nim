@@ -81,9 +81,9 @@ proc initData(path: string): Data =
 if is_main_module:
   let data = initData(paramStr(1))
   if data.exist:
-    echo "Page body: ", data.page.revision.body
-    echo pretty(%data)
+    echo data.page.revision.body
   else:
+    echo pretty(%data)
     echo data.error
     # var res = data.create("this is a test\n for API")
     # echo pretty(%res.body)

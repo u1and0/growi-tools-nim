@@ -10,6 +10,7 @@ import std/os
 import std/httpclient
 import std/json
 import strutils
+import parseopt
 ## Get token from https://demo.growi.org/me
 const ACCESS_TOKEN = getEnv("GROWI_ACCESS_TOKEN")
 ## https://demo.growi.org/
@@ -41,6 +42,9 @@ type
     page: Page
     exist: bool
     error: string
+
+  Opts = tuple
+    list: bool
 
 proc create(self: Data, body: string): Response =
   ## パスの内容へbodyを書き込む
@@ -99,6 +103,15 @@ proc get(self: Data): Response =
   let q = {"access_token": ACCESS_TOKEN, "path": self.page.path}
   client.get(url ? q)
 
+proc list(self: Data): Response =
+  ## パス配下のpage情報を取得する
+  var client = newHttpClient()
+  client.headers = newHttpHeaders({"Content-Type": "application/json"})
+  var url = parseUri(URL)
+  url.path = "_api/pages.list"
+  let q = {"access_token": ACCESS_TOKEN, "path": self.page.path}
+  client.get(url ? q)
+
 proc initData(path: string): Data =
   ## GrowiへのAPIアクセス
   ## # Usage
@@ -138,17 +151,45 @@ proc initData(path: string): Data =
       result.error = $parseJson(res.body)["errors"]
       result.page.path = path
 
+proc echoHelp(code: int) =
+  echo """Get Growi Page info by Growi API
+
+  Uasge:
+    # GET page body
+    growi /path/to/page
+    # POST page body
+    growi /path/to/page "my test\nbody"
+  """
+  quit(code)
+
+proc echoVersion() =
+  echo "growiapi ", VERSION
+  quit()
+
 if is_main_module:
-  if "-v" in commandLineParams():
-    echo "growi-api ", VERSION
-    quit()
-  let data = initData(paramStr(1))
-  if paramCount() == 1 and data.exist:
+  var args: seq[string]
+  var opts: Opts
+  for kind, key, val in getopt(commandLineParams()):
+    case kind
+    of cmdArgument:
+      args.add(key)
+    of cmdLongOption, cmdShortOption:
+      case key
+      of "help", "h": echoHelp(0)
+      of "version", "v": echoVersion()
+      of "list", "l": opts.list = true
+    of cmdEnd: assert(false)
+  if args == @[]: echoHelp(1)
+
+  let data = initData(args[0])
+  if opts.list and data.exist:
+    echo data.list().body
+  elif args.len() == 1 and data.exist:
     # GET method
     echo data.page.revision.body
-  elif paramCount() == 2:
+  elif args.len() == 2:
     # POST method
-    let res: Response = data.post(paramStr(2))
+    let res: Response = data.post(args[1])
     echo res.status & "\n" & res.body
   else:
     echo pretty(%data)

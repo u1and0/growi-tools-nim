@@ -11,10 +11,6 @@ import std/httpclient
 import std/json
 import strutils
 import parseopt
-## Get token from https://demo.growi.org/me
-const ACCESS_TOKEN = getEnv("GROWI_ACCESS_TOKEN")
-## https://demo.growi.org/
-const URL = getEnv("GROWI_URL")
 const VERSION = "v0.1.0"
 
 type
@@ -42,22 +38,21 @@ type
     page: Page
     exist: bool
     error: string
+    uri: Uri
+    token: string
+    client: HttpClient
 
   Opts = tuple
     list: bool
 
 proc create(self: Data, body: string): Response =
   ## パスの内容へbodyを書き込む
-  let client = newHttpClient()
-  client.headers = newHttpHeaders({"Content-Type": "application/json"})
-  var url = parseUri(URL)
-  url.path = "_api/v3/pages"
   let param = %* {
     "body": body,
     "path": self.page.path,
-    "access_token": ACCESS_TOKEN
+    "access_token": self.token,
   }
-  client.request(url, httpMethod = HttpPost, body = $param)
+  self.client.request(self.uri / "_api/v3/pages", httpMethod = HttpPost, body = $param)
 
 proc update(self: Data, body: string): Response =
   ## パスの内容をbodyで更新する
@@ -66,17 +61,13 @@ proc update(self: Data, body: string): Response =
     new(e)
     e.msg = "{\"error\": \"更新前後の内容が同じなので、更新しませんでした。\"}"
     raise e
-  let client = newHttpClient()
-  client.headers = newHttpHeaders({"Content-Type": "application/json"})
-  var url = parseUri(URL)
-  url.path = "_api/pages.update"
   let param = %* {
     "page_id": self.page.id,
     "revision_id": self.page.revision.id,
     "body": body,
-    "access_token": ACCESS_TOKEN
+    "access_token": self.token,
   }
-  client.request(url, httpMethod = HttpPost, body = $param)
+  self.client.request(self.uri / "_api/pages.update", httpMethod = HttpPost, body = $param)
 
 proc post(self: Data, body: string): Response =
   ## 指定パスに
@@ -90,53 +81,44 @@ proc post(self: Data, body: string): Response =
 
 proc get(self: Data): Response =
   ## パスのページをJSONで取得する
-  ## prop_access=True でJSONオブジェクトをデフォルトの辞書ではなく
-  ## ドットプロパティアクセスできるSimpleNamespaceの形式で取得する。
-  ## usage:
-  ##     page = Page("...")
-  ##     page.get(0) => 普通のJSONオブジェクト
-  ##     page.get(1) => Pythonコンソールにてドットプロパティアクセス
-  var client = newHttpClient()
-  client.headers = newHttpHeaders({"Content-Type": "application/json"})
-  var url = parseUri(URL)
-  url.path = "_api/v3/page"
-  let q = {"access_token": ACCESS_TOKEN, "path": self.page.path}
-  client.get(url ? q)
+  let q = {"access_token": self.token, "path": self.page.path}
+  self.client.get(self.uri / "_api/v3/page" ? q)
 
 proc list(self: Data): Response =
   ## パス配下のpage情報を取得する
-  var client = newHttpClient()
-  client.headers = newHttpHeaders({"Content-Type": "application/json"})
-  var url = parseUri(URL)
-  url.path = "_api/pages.list"
-  let q = {"access_token": ACCESS_TOKEN, "path": self.page.path}
-  client.get(url ? q)
+  let q = {"access_token": self.token, "path": self.page.path}
+  self.client.get(self.uri / "_api/pages.list" ? q)
 
 proc initData(path: string): Data =
   ## GrowiへのAPIアクセス
   ## # Usage
   ## 環境変数に `_GROWI_ACCESS_TOKEN` `GROWI_URL` をセットする必要がある。
-  ## Pythonコンソール上で行うには、
-
-  ## >>> import os
-  ## >>> os.environ["GROWI_ACCESS_TOKEN"] = "****"
-  ## >>> os.environ["GROWI_URL"] = "http://192.168.***.***:3000"
-
+  ##
   ## `GROWI_ACCESS_TOKEN`を設定しない場合、KeyErrorを吐いてプログラムは終了する。
   ## `GROWI_URL`を設定しない場合、"http://localhost:3000"が割り当てられる。
-
+  ##
   ## # Example
   ## data = initData("/user/myname")
-
+  ##
   ## data.exist: ページが存在するならTrue
-  ## data._json: data.get()で返ってくるJSONオブジェクト
-  ##             ドットプロパティアクセスできる
   ## data.get(): パスのページをJSONで取得する
   ## data.post(body): パスの内容へbodyを書き込むか上書きする
   ## data.list(): パス配下の情報をJSONで取得する
-  var data = Data()
-  data.page.path = path
-  let res: Response = data.get()
+  result = Data()
+  result.page.path = path
+  ## Get token from https://demo.growi.org/me
+  result.token = getEnv("GROWI_ACCESS_TOKEN")
+  if result.token == "":
+    var e: ref KeyError
+    new(e)
+    e.msg = "アクセストークンが設定されていません"
+    raise e
+  ## https://demo.growi.org/
+  result.uri = getEnv("GROWI_URL", "http://localhost:3000").parseUri()
+  result.client = newHttpClient()
+  result.client.headers = newHttpHeaders({"Content-Type": "application/json"})
+
+  let res: Response = result.get()
   case res.status:
     of $Http200:
       # underscoreをobjectのfield名にできない仕様のせいで
@@ -192,5 +174,5 @@ if is_main_module:
     let res: Response = data.post(args[1])
     echo res.status & "\n" & res.body
   else:
-    echo pretty(%data)
-    echo data.error
+    echo data
+    quit(1)

@@ -139,6 +139,9 @@ proc initData(path: string): Data =
       result.page.path = path
 
 if is_main_module:
+  if "-v" in commandLineParams():
+    echo "growi-api ", VERSION
+    quit()
   let data = initData(paramStr(1))
   if paramCount() == 1 and data.exist:
     # GET method

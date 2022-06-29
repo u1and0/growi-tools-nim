@@ -165,7 +165,7 @@ if is_main_module:
 
   let data = initData(args[0])
   if opts.list and data.exist:
-    echo data.list().body
+    echo data.list().body.parseJson().pretty()
   elif args.len() == 1 and data.exist:
     # GET method
     echo data.page.revision.body
@@ -175,4 +175,4 @@ if is_main_module:
     echo res.status & "\n" & res.body
   else:
     echo data
-    quit(1)
+    echoHelp(1)

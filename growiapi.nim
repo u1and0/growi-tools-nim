@@ -10,8 +10,21 @@ import std/os
 import std/httpclient
 import std/json
 import strutils
+import times
 import parseopt
 const VERSION = "v0.1.0"
+
+## Get token from https://demo.growi.org/me
+let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
+if TOKEN == "":
+  var e: ref KeyError
+  new(e)
+  e.msg = "アクセストークンが設定されていません"
+  raise e
+## https://demo.growi.org/
+let URI = getEnv("GROWI_URL", "http://localhost:3000").parseUri()
+let CLIENT = newHttpClient()
+CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 
 type
   ## _api/v3/page で取得できるJSONオブジェクトのrevision要素
@@ -38,21 +51,19 @@ type
     page: Page
     exist: bool
     error: string
-    uri: Uri
-    token: string
-    client: HttpClient
 
   Opts = tuple
     list: bool
+    rev: bool
 
 proc create(self: Data, body: string): Response =
   ## パスの内容へbodyを書き込む
   let param = %* {
     "body": body,
     "path": self.page.path,
-    "access_token": self.token,
+    "access_token": TOKEN,
   }
-  self.client.request(self.uri / "_api/v3/pages", httpMethod = HttpPost, body = $param)
+  CLIENT.request(URI / "_api/v3/pages", httpMethod = HttpPost, body = $param)
 
 proc update(self: Data, body: string): Response =
   ## パスの内容をbodyで更新する
@@ -65,9 +76,9 @@ proc update(self: Data, body: string): Response =
     "page_id": self.page.id,
     "revision_id": self.page.revision.id,
     "body": body,
-    "access_token": self.token,
+    "access_token": TOKEN,
   }
-  self.client.request(self.uri / "_api/pages.update", httpMethod = HttpPost, body = $param)
+  CLIENT.request(URI / "_api/pages.update", httpMethod = HttpPost, body = $param)
 
 proc post(self: Data, body: string): Response =
   ## 指定パスに
@@ -81,13 +92,13 @@ proc post(self: Data, body: string): Response =
 
 proc get(self: Data): Response =
   ## パスのページをJSONで取得する
-  let q = {"access_token": self.token, "path": self.page.path}
-  self.client.get(self.uri / "_api/v3/page" ? q)
+  let q = {"access_token": TOKEN, "path": self.page.path}
+  CLIENT.get(URI / "_api/v3/page" ? q)
 
 proc list(self: Data): Response =
   ## パス配下のpage情報を取得する
-  let q = {"access_token": self.token, "path": self.page.path}
-  self.client.get(self.uri / "_api/pages.list" ? q)
+  let q = {"access_token": TOKEN, "path": self.page.path}
+  CLIENT.get(URI / "_api/pages.list" ? q)
 
 proc initData(path: string): Data =
   ## GrowiへのAPIアクセス
@@ -106,17 +117,6 @@ proc initData(path: string): Data =
   ## data.list(): パス配下の情報をJSONで取得する
   result = Data()
   result.page.path = path
-  ## Get token from https://demo.growi.org/me
-  result.token = getEnv("GROWI_ACCESS_TOKEN")
-  if result.token == "":
-    var e: ref KeyError
-    new(e)
-    e.msg = "アクセストークンが設定されていません"
-    raise e
-  ## https://demo.growi.org/
-  result.uri = getEnv("GROWI_URL", "http://localhost:3000").parseUri()
-  result.client = newHttpClient()
-  result.client.headers = newHttpHeaders({"Content-Type": "application/json"})
 
   let res: Response = result.get()
   case res.status:
@@ -132,6 +132,38 @@ proc initData(path: string): Data =
       result.exist = false
       result.error = $parseJson(res.body)["errors"]
       result.page.path = path
+
+
+type
+  Author = tuple[name, username, createdAt, id: string]
+
+  Doc = tuple[id, body: string, createdAt: DateTime, author: Author]
+
+  RevisionHistory = object
+    id: string
+    page: int
+    pageId: string
+    totalDocs: int
+    docs: seq[Doc]
+
+proc get(self: RevisionHistory): Response =
+  let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
+  CLIENT.get(URI / "_api/v3/revisions/list" ? q)
+
+proc initRevisionHistory(id: string): RevisionHistory =
+  result = RevisionHistory()
+  result.page = 0
+  result.pageId = id
+
+  let res = result.get()
+  # underscoreをobjectのfield名にできない仕様のせいで
+  # stringを一部underscoreなしにする
+  let jsonStr = res.body.multiReplace(
+    ("\"_id\":", "\"id\":")
+  )
+  let rev = to(parseJson(jsonStr), RevisionHistory)
+  echo rev
+  result = rev
 
 proc echoHelp(code: int) =
   echo """Get Growi Page info by Growi API
@@ -160,12 +192,16 @@ if is_main_module:
       of "help", "h": echoHelp(0)
       of "version", "v": echoVersion()
       of "list", "l": opts.list = true
+      of "revision", "r": opts.rev = true
     of cmdEnd: assert(false)
   if args == @[]: echoHelp(1)
 
   let data = initData(args[0])
   if opts.list and data.exist:
     echo data.list().body.parseJson().pretty()
+  if opts.rev and data.exist:
+    let rev = initRevisionHistory(data.page.id)
+    echo $rev
   elif args.len() == 1 and data.exist:
     # GET method
     echo data.page.revision.body

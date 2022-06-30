@@ -137,14 +137,14 @@ proc initData(path: string): Data =
 type
   Author = tuple[name, username, createdAt, id: string]
 
-  Doc = tuple[id, body: string, createdAt: DateTime, author: Author]
+  Doc = tuple[id, pageId, body: string, author: Author]
+  Docs = seq[Doc]
+  Revisions = tuple[docs: Docs, page, totalDocs: int]
 
   RevisionHistory = object
-    id: string
-    page: int
+    revisions: Revisions
     pageId: string
-    totalDocs: int
-    docs: seq[Doc]
+    page: int
 
 proc get(self: RevisionHistory): Response =
   let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
@@ -161,9 +161,7 @@ proc initRevisionHistory(id: string): RevisionHistory =
   let jsonStr = res.body.multiReplace(
     ("\"_id\":", "\"id\":")
   )
-  let rev = to(parseJson(jsonStr), RevisionHistory)
-  echo rev
-  result = rev
+  result.revisions = to(parseJson(jsonStr), Revisions)
 
 proc echoHelp(code: int) =
   echo """Get Growi Page info by Growi API
@@ -199,7 +197,7 @@ if is_main_module:
   let data = initData(args[0])
   if opts.list and data.exist:
     echo data.list().body.parseJson().pretty()
-  if opts.rev and data.exist:
+  elif opts.rev and data.exist:
     let rev = initRevisionHistory(data.page.id)
     echo $rev
   elif args.len() == 1 and data.exist:

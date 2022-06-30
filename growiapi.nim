@@ -205,7 +205,8 @@ if is_main_module:
     echo data.page.revision.body
   elif args.len() == 2:
     # POST method
-    let res: Response = data.post(args[1])
+    let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
+    let res: Response = data.post(body)
     echo res.status & "\n" & res.body
   else:
     echo data

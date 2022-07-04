@@ -177,6 +177,41 @@ proc growiApiGet(args: seq[string]): int =
     return 1
   let data = initData(args[0])
   echo data.page.revision.body
+
+proc growiApiPost(args: seq[string]): int =
+  if len(args) != 2:
+    echo "usage: growiapi post PATH BODY"
+    return 1
+  let data = initData(args[0])
+  let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
+  let res: Response = data.post(body)
+  discard res
+  return 0
+
+proc growiApiUpdate(args: seq[string]): int =
+  if len(args) != 2:
+    echo "usage: growiapi update PATH BODY"
+    return 1
+  let data = initData(args[0])
+  if not data.exist:
+    echo "error: not exist path. try `growiapi create PATH BODY`."
+    return 2
+  let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
+  let res: Response = data.update(body)
+  discard res
+  return 0
+
+proc growiApiCreate(args: seq[string]): int =
+  if len(args) != 2:
+    echo "usage: growiapi create PATH BODY"
+    return 1
+  let data = initData(args[0])
+  if data.exist:
+    echo "error: exist path. try `growiapi update PATH BODY`."
+    return 2
+  let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
+  let res: Response = data.create(body)
+  discard res
   return 0
 
 when is_main_module:
@@ -199,7 +234,9 @@ when is_main_module:
 
   dispatchMulti(
     [growiApiGet, cmdName = "get", help = "growiapi get PATH"],
-    # [data.post, help = "growi post PATH BODY"]
+    [growiApiPost, cmdName = "post", help = "growiapi post PATH BODY"],
+    [growiApiUpdate, cmdName = "update", help = "growiapi update PATH BODY"],
+    [growiApiCreate, cmdName = "create", help = "growiapi create PATH BODY"],
   )
 
   # let data = initData(args[0])

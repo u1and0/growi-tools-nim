@@ -10,6 +10,7 @@ import std/os
 import std/httpclient
 import std/json
 import strutils
+import sugar
 
 ## Get token from https://demo.growi.org/me
 let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
@@ -49,9 +50,13 @@ type
     exist: bool
     error: string
 
-  Opts = tuple
-    list: bool
-    rev: bool
+  ## _api/pages.list で取得できるJSONオブジェクトのpages要素
+  ClassicalPage = tuple[
+    id, path, creator, revision: string,
+    liker, seenUsers: seq[string],
+    commentCount: int
+    ]
+  Pages = seq[ClassicalPage]
 
 proc create(self: Data, body: string): Response =
   ## パスの内容へbodyを書き込む
@@ -96,6 +101,17 @@ proc list(self: Data): Response =
   ## パス配下のpage情報を取得する
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/pages.list" ? q)
+
+proc tree(self: Data): seq[string] =
+  let res = self.list()
+  # underscoreをobjectのfield名にできない仕様のせいで
+  # stringを一部underscoreなしにする
+  let jsonStr = res.body.multiReplace(
+    ("\"_id\":", "\"id\":")
+  )
+  let pages = jsonStr.parseJson()["pages"].to(Pages)
+  result = collect(newSeq):
+    for item in pages: item.path
 
 proc initData(path: string): Data =
   ## GrowiへのAPIアクセス
@@ -178,7 +194,7 @@ proc growiApiGet(verbose = false, args: seq[string]): int =
     return 1
   let data = initData(args[0])
   if verbose:
-    echo pretty( %data.page)
+    echo pretty(%data.page)
   else:
     echo data.page.revision.body
   return 0
@@ -231,6 +247,29 @@ proc growiApiCreate(verbose = false, args: seq[string]): int =
     discard res
   return 0
 
+proc growiApiList(verbose = false, args: seq[string]): int =
+  if len(args) != 1:
+    echo "usage: growiapi list PATH"
+    return 1
+  let data = initData(args[0])
+  let res: Response = data.list()
+  if verbose:
+    echo res.status
+    echo res.body.parseJson().pretty()
+  else:
+    for i in data.tree():
+      echo i
+  return 0
+
+proc growiApiRev(verbose = false, args: seq[string]): int =
+  if len(args) != 1:
+    echo "usage: growiapi rev PATH"
+    return 1
+  let data = initData(args[0])
+  let rev = initRevisionHistory(data.page.id)
+  echo $rev
+  return 0
+
 when is_main_module:
   # var args: seq[string]
   # var opts: Opts
@@ -254,6 +293,8 @@ when is_main_module:
     [growiApiPost, cmdName = "post", help = "growiapi post PATH BODY"],
     [growiApiUpdate, cmdName = "update", help = "growiapi update PATH BODY"],
     [growiApiCreate, cmdName = "create", help = "growiapi create PATH BODY"],
+    [growiApiList, cmdName = "list", help = "growiapi list PATH"],
+    [growiApiRev, cmdName = "rev", help = "growiapi rev PATH"],
   )
 
   # let data = initData(args[0])

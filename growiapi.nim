@@ -26,26 +26,20 @@ CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 
 type
   ## _api/v3/page で取得できるJSONオブジェクトのrevision要素
-  Revision = object
-    id: string
-    body: string
-    pageId: string
+  Revision = tuple[id, body, pageId: string]
 
   ## _api/v3/page で取得できるJSONオブジェクトのcreator要素
-  Creator = object
-    name: string
-    username: string
-    status: int
+  Creator = tuple[name, username: string]
 
   ## _api/v3/page で取得できるJSONオブジェクトのpage要素
-  Page = object
-    id: string
-    path: string
-    revision: Revision
-    creator: Creator
+  Page = tuple[
+    id, path: string,
+    revision: Revision,
+    creator: Creator,
+    ]
 
   ## _api/v3/page で取得できるJSONオブジェクトとページの存在、エラーメッセージ
-  Data = object
+  MetaPage = object
     page: Page
     exist: bool
     error: string
@@ -58,7 +52,7 @@ type
     ]
   Pages = seq[ClassicalPage]
 
-proc create(self: Data, body: string): Response =
+proc create(self: MetaPage, body: string): Response =
   ## パスの内容へbodyを書き込む
   let param = %* {
     "body": body,
@@ -67,7 +61,7 @@ proc create(self: Data, body: string): Response =
   }
   CLIENT.request(URI / "_api/v3/pages", httpMethod = HttpPost, body = $param)
 
-proc update(self: Data, body: string): Response =
+proc update(self: MetaPage, body: string): Response =
   ## パスの内容をbodyで更新する
   if body == self.page.revision.body:
     var e: ref HttpRequestError
@@ -82,7 +76,7 @@ proc update(self: Data, body: string): Response =
   }
   CLIENT.request(URI / "_api/pages.update", httpMethod = HttpPost, body = $param)
 
-proc post(self: Data, body: string): Response =
+proc post(self: MetaPage, body: string): Response =
   ## 指定パスに
   ## ページが存在すれば_update(),
   ## ページが存在しなければ_create()
@@ -92,17 +86,17 @@ proc post(self: Data, body: string): Response =
   else:
     self.create(body)
 
-proc get(self: Data): Response =
+proc get(self: MetaPage): Response =
   ## パスのページをJSONで取得する
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/v3/page" ? q)
 
-proc list(self: Data): Response =
+proc list(self: MetaPage): Response =
   ## パス配下のpage情報を取得する
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/pages.list" ? q)
 
-proc tree(self: Data): seq[string] =
+proc tree(self: MetaPage): seq[string] =
   let res = self.list()
   # underscoreをobjectのfield名にできない仕様のせいで
   # stringを一部underscoreなしにする
@@ -113,7 +107,7 @@ proc tree(self: Data): seq[string] =
   result = collect(newSeq):
     for item in pages: item.path
 
-proc initData(path: string): Data =
+proc initMetaPage(path: string): MetaPage =
   ## GrowiへのAPIアクセス
   ## # Usage
   ## 環境変数に `_GROWI_ACCESS_TOKEN` `GROWI_URL` をセットする必要がある。
@@ -122,13 +116,13 @@ proc initData(path: string): Data =
   ## `GROWI_URL`を設定しない場合、"http://localhost:3000"が割り当てられる。
   ##
   ## # Example
-  ## data = initData("/user/myname")
+  ## metaPage = initMetaPage("/user/myname")
   ##
-  ## data.exist: ページが存在するならTrue
-  ## data.get(): パスのページをJSONで取得する
-  ## data.post(body): パスの内容へbodyを書き込むか上書きする
-  ## data.list(): パス配下の情報をJSONで取得する
-  result = Data()
+  ## metaPage.exist: ページが存在するならTrue
+  ## metaPage.get(): パスのページをJSONで取得する
+  ## metaPage.post(body): パスの内容へbodyを書き込むか上書きする
+  ## metaPage.list(): パス配下の情報をJSONで取得する
+  result = MetaPage()
   result.page.path = path
 
   let res: Response = result.get()
@@ -154,17 +148,17 @@ type
   Docs = seq[Doc]
   Revisions = tuple[docs: Docs, page, totalDocs: int]
 
-  RevisionHistory = object
+  MetaRevisions = object
     revisions: Revisions
     pageId: string
     page: int
 
-proc get(self: RevisionHistory): Response =
+proc get(self: MetaRevisions): Response =
   let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
   CLIENT.get(URI / "_api/v3/revisions/list" ? q)
 
-proc initRevisionHistory(id: string): RevisionHistory =
-  result = RevisionHistory()
+proc initRevisionHistory(id: string): MetaRevisions =
+  result = MetaRevisions()
   result.page = 0
   result.pageId = id
 
@@ -192,20 +186,20 @@ proc growiApiGet(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi get PATH"
     return 1
-  let data = initData(args[0])
+  let metaPage = initMetaPage(args[0])
   if verbose:
-    echo pretty(%data.page)
+    echo pretty( % metaPage.page)
   else:
-    echo data.page.revision.body
+    echo metaPage.page.revision.body
   return 0
 
 proc growiApiPost(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi post PATH BODY"
     return 1
-  let data = initData(args[0])
+  let metaPage = initMetaPage(args[0])
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
-  let res: Response = data.post(body)
+  let res: Response = metaPage.post(body)
   if verbose:
     echo res.status
     echo res.body.parseJson().pretty()
@@ -217,12 +211,12 @@ proc growiApiUpdate(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi update PATH BODY"
     return 1
-  let data = initData(args[0])
-  if not data.exist:
+  let metaPage = initMetaPage(args[0])
+  if not metaPage.exist:
     echo "error: not exist path. try `growiapi create PATH BODY`."
     return 2
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
-  let res: Response = data.update(body)
+  let res: Response = metaPage.update(body)
   if verbose:
     echo res.status
     echo res.body.parseJson().pretty()
@@ -234,12 +228,12 @@ proc growiApiCreate(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi create PATH BODY"
     return 1
-  let data = initData(args[0])
-  if data.exist:
+  let metaPage = initMetaPage(args[0])
+  if metaPage.exist:
     echo "error: exist path. try `growiapi update PATH BODY`."
     return 2
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
-  let res: Response = data.create(body)
+  let res: Response = metaPage.create(body)
   if verbose:
     echo res.status
     echo res.body.parseJson().pretty()
@@ -251,13 +245,13 @@ proc growiApiList(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi list PATH"
     return 1
-  let data = initData(args[0])
-  let res: Response = data.list()
+  let metaPage = initMetaPage(args[0])
+  let res: Response = metaPage.list()
   if verbose:
     echo res.status
     echo res.body.parseJson().pretty()
   else:
-    for i in data.tree():
+    for i in metaPage.tree():
       echo i
   return 0
 
@@ -265,8 +259,8 @@ proc growiApiRev(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi rev PATH"
     return 1
-  let data = initData(args[0])
-  let rev = initRevisionHistory(data.page.id)
+  let metaPage = initMetaPage(args[0])
+  let rev = initRevisionHistory(metaPage.page.id)
   echo $rev
   return 0
 
@@ -297,20 +291,20 @@ when is_main_module:
     [growiApiRev, cmdName = "rev", help = "growiapi rev PATH"],
   )
 
-  # let data = initData(args[0])
-  # if opts.list and data.exist:
-  #   echo data.list().body.parseJson().pretty()
-  # elif opts.rev and data.exist:
-  #   let rev = initRevisionHistory(data.page.id)
+  # let metaPage = initMetaPage(args[0])
+  # if opts.list and metaPage.exist:
+  #   echo metaPage.list().body.parseJson().pretty()
+  # elif opts.rev and metaPage.exist:
+  #   let rev = initRevisionHistory(metaPage.page.id)
   #   echo $rev
-  # elif args.len() == 1 and data.exist:
+  # elif args.len() == 1 and metaPage.exist:
   #   # GET method
-  #   echo data.page.revision.body
+  #   echo metaPage.page.revision.body
   # elif args.len() == 2:
   #   # POST method
   #   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
-  #   let res: Response = data.post(body)
+  #   let res: Response = metaPage.post(body)
   #   echo res.status & "\n" & res.body
   # else:
-  #   echo data
+  #   echo metaPage
   #   echoHelp(1)

@@ -10,9 +10,6 @@ import std/os
 import std/httpclient
 import std/json
 import strutils
-import times
-import parseopt
-const VERSION = "v0.1.0"
 
 ## Get token from https://demo.growi.org/me
 let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
@@ -174,40 +171,51 @@ proc echoHelp(code: int) =
   """
   quit(code)
 
-proc echoVersion() =
-  echo "growiapi ", VERSION
-  quit()
-
-if is_main_module:
-  var args: seq[string]
-  var opts: Opts
-  for kind, key, val in getopt(commandLineParams()):
-    case kind
-    of cmdArgument:
-      args.add(key)
-    of cmdLongOption, cmdShortOption:
-      case key
-      of "help", "h": echoHelp(0)
-      of "version", "v": echoVersion()
-      of "list", "l": opts.list = true
-      of "revision", "r": opts.rev = true
-    of cmdEnd: assert(false)
-  if args == @[]: echoHelp(1)
-
+proc growiApiGet(args: seq[string]): int =
+  if len(args) != 1:
+    echo "usage: growiapi get PATH"
+    return 1
   let data = initData(args[0])
-  if opts.list and data.exist:
-    echo data.list().body.parseJson().pretty()
-  elif opts.rev and data.exist:
-    let rev = initRevisionHistory(data.page.id)
-    echo $rev
-  elif args.len() == 1 and data.exist:
-    # GET method
-    echo data.page.revision.body
-  elif args.len() == 2:
-    # POST method
-    let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
-    let res: Response = data.post(body)
-    echo res.status & "\n" & res.body
-  else:
-    echo data
-    echoHelp(1)
+  echo data.page.revision.body
+  return 0
+
+when is_main_module:
+  # var args: seq[string]
+  # var opts: Opts
+  # for kind, key, val in getopt(commandLineParams()):
+  #   case kind
+  #   of cmdArgument:
+  #     args.add(key)
+  #   of cmdLongOption, cmdShortOption:
+  #     case key
+  #     of "help", "h": echoHelp(0)
+  #     of "list", "l": opts.list = true
+  #     of "revision", "r": opts.rev = true
+  #   of cmdEnd: assert(false)
+  # if args == @[]: echoHelp(1)
+
+  import cligen
+  clCfg.version = "v0.1.0"
+
+  dispatchMulti(
+    [growiApiGet, cmdName = "get", help = "growiapi get PATH"],
+    # [data.post, help = "growi post PATH BODY"]
+  )
+
+  # let data = initData(args[0])
+  # if opts.list and data.exist:
+  #   echo data.list().body.parseJson().pretty()
+  # elif opts.rev and data.exist:
+  #   let rev = initRevisionHistory(data.page.id)
+  #   echo $rev
+  # elif args.len() == 1 and data.exist:
+  #   # GET method
+  #   echo data.page.revision.body
+  # elif args.len() == 2:
+  #   # POST method
+  #   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
+  #   let res: Response = data.post(body)
+  #   echo res.status & "\n" & res.body
+  # else:
+  #   echo data
+  #   echoHelp(1)

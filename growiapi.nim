@@ -171,24 +171,33 @@ proc echoHelp(code: int) =
   """
   quit(code)
 
-proc growiApiGet(args: seq[string]): int =
+# ここからCLI実装
+proc growiApiGet(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi get PATH"
     return 1
   let data = initData(args[0])
-  echo data.page.revision.body
+  if verbose:
+    echo pretty( %data.page)
+  else:
+    echo data.page.revision.body
+  return 0
 
-proc growiApiPost(args: seq[string]): int =
+proc growiApiPost(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi post PATH BODY"
     return 1
   let data = initData(args[0])
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
   let res: Response = data.post(body)
-  discard res
+  if verbose:
+    echo res.status
+    echo res.body.parseJson().pretty()
+  else:
+    discard res
   return 0
 
-proc growiApiUpdate(args: seq[string]): int =
+proc growiApiUpdate(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi update PATH BODY"
     return 1
@@ -198,10 +207,14 @@ proc growiApiUpdate(args: seq[string]): int =
     return 2
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
   let res: Response = data.update(body)
-  discard res
+  if verbose:
+    echo res.status
+    echo res.body.parseJson().pretty()
+  else:
+    discard res
   return 0
 
-proc growiApiCreate(args: seq[string]): int =
+proc growiApiCreate(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi create PATH BODY"
     return 1
@@ -211,7 +224,11 @@ proc growiApiCreate(args: seq[string]): int =
     return 2
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
   let res: Response = data.create(body)
-  discard res
+  if verbose:
+    echo res.status
+    echo res.body.parseJson().pretty()
+  else:
+    discard res
   return 0
 
 when is_main_module:

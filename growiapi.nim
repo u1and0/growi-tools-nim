@@ -147,12 +147,16 @@ proc initMetaPage(path: string): MetaPage =
 
 
 type
-  Author = tuple[name, username, createdAt, id: string]
-
-  Doc = tuple[id, pageId, body: string, author: Author]
+  Author = object
+    name, username, createdAt, id: string
+  Doc = object
+    id, pageId, body: string
+    author: Author
   Docs = seq[Doc]
-  Revisions = tuple[docs: Docs, page, totalDocs: int]
-
+  Revisions = object
+    docs: Docs
+    page: int
+    totalDocs: int
   MetaRevisions = object
     revisions: Revisions
     pageId: string
@@ -161,6 +165,11 @@ type
 proc get(self: MetaRevisions): Response =
   let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
   CLIENT.get(URI / "_api/v3/revisions/list" ? q)
+
+proc chain(self: MetaRevisions): seq[string] =
+  let docs = self.revisions.docs
+  result = collect(newSeq):
+    for item in docs: item.body
 
 proc initRevisionHistory(id: string): MetaRevisions =
   result = MetaRevisions()
@@ -187,7 +196,7 @@ proc echoHelp(code: int) =
   quit(code)
 
 # ここからCLI実装
-proc growiApiGet(verbose = false, args: seq[string]): int =
+proc subcmdGet(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi get PATH"
     return 1
@@ -198,7 +207,7 @@ proc growiApiGet(verbose = false, args: seq[string]): int =
     echo metaPage.page.revision.body
   return 0
 
-proc growiApiPost(verbose = false, args: seq[string]): int =
+proc subcmdPost(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi post PATH BODY"
     return 1
@@ -211,7 +220,7 @@ proc growiApiPost(verbose = false, args: seq[string]): int =
     discard res
   return 0
 
-proc growiApiUpdate(verbose = false, args: seq[string]): int =
+proc subcmdUpdate(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi update PATH BODY"
     return 1
@@ -227,7 +236,7 @@ proc growiApiUpdate(verbose = false, args: seq[string]): int =
     discard res
   return 0
 
-proc growiApiCreate(verbose = false, args: seq[string]): int =
+proc subcmdCreate(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi create PATH BODY"
     return 1
@@ -243,7 +252,7 @@ proc growiApiCreate(verbose = false, args: seq[string]): int =
     discard res
   return 0
 
-proc growiApiList(verbose = false, args: seq[string]): int =
+proc subcmdList(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi list PATH"
     return 1
@@ -256,13 +265,16 @@ proc growiApiList(verbose = false, args: seq[string]): int =
       echo i
   return 0
 
-proc growiApiRev(verbose = false, args: seq[string]): int =
+proc subcmdRev(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi rev PATH"
     return 1
   let metaPage = initMetaPage(args[0])
   let rev = initRevisionHistory(metaPage.page.id)
-  echo $rev
+  if verbose:
+    echo pretty( %*rev)
+  else:
+    echo rev.chain()
   return 0
 
 when is_main_module:
@@ -284,12 +296,12 @@ when is_main_module:
   clCfg.version = "v0.1.0"
 
   dispatchMulti(
-    [growiApiGet, cmdName = "get", help = "growiapi get PATH"],
-    [growiApiPost, cmdName = "post", help = "growiapi post PATH BODY"],
-    [growiApiUpdate, cmdName = "update", help = "growiapi update PATH BODY"],
-    [growiApiCreate, cmdName = "create", help = "growiapi create PATH BODY"],
-    [growiApiList, cmdName = "list", help = "growiapi list PATH"],
-    [growiApiRev, cmdName = "rev", help = "growiapi rev PATH"],
+    [subcmdGet, cmdName = "get", help = "growiapi get PATH"],
+    [subcmdPost, cmdName = "post", help = "growiapi post PATH BODY"],
+    [subcmdUpdate, cmdName = "update", help = "growiapi update PATH BODY"],
+    [subcmdCreate, cmdName = "create", help = "growiapi create PATH BODY"],
+    [subcmdList, cmdName = "list", help = "growiapi list PATH"],
+    [subcmdRev, cmdName = "rev", help = "growiapi rev PATH"],
   )
 
   # let metaPage = initMetaPage(args[0])

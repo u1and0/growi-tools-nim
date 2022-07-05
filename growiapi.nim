@@ -11,6 +11,8 @@ import std/httpclient
 import std/json
 import strutils
 import sugar
+import tables
+import strformat
 
 ## Get token from https://demo.growi.org/me
 let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
@@ -152,9 +154,8 @@ type
   Doc = object
     id, pageId, body: string
     author: Author
-  Docs = seq[Doc]
   Revisions = object
-    docs: Docs
+    docs: seq[Doc]
     page: int
     totalDocs: int
   MetaRevisions = object
@@ -166,12 +167,12 @@ proc get(self: MetaRevisions): Response =
   let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
   CLIENT.get(URI / "_api/v3/revisions/list" ? q)
 
-proc chain(self: MetaRevisions): seq[string] =
-  let docs = self.revisions.docs
-  result = collect(newSeq):
-    for item in docs: item.body
+proc chain(self: MetaRevisions): OrderedTable[string, string] =
+  let docs: seq[Doc] = self.revisions.docs
+  result = collect(initOrderedTable(5)):
+    for doc in docs: {doc.id: doc.body}
 
-proc initRevisionHistory(id: string): MetaRevisions =
+proc initMetaRevisions(id: string): MetaRevisions =
   result = MetaRevisions()
   result.page = 0
   result.pageId = id
@@ -182,18 +183,7 @@ proc initRevisionHistory(id: string): MetaRevisions =
   let jsonStr = res.body.multiReplace(
     ("\"_id\":", "\"id\":")
   )
-  result.revisions = to(parseJson(jsonStr), Revisions)
-
-proc echoHelp(code: int) =
-  echo """Get Growi Page info by Growi API
-
-  Uasge:
-    # GET page body
-    growi /path/to/page
-    # POST page body
-    growi /path/to/page "my test\nbody"
-  """
-  quit(code)
+  result.revisions = jsonStr.parseJson().to(Revisions)
 
 # ここからCLI実装
 proc subcmdGet(verbose = false, args: seq[string]): int =
@@ -270,16 +260,18 @@ proc subcmdRev(verbose = false, args: seq[string]): int =
     echo "usage: growiapi rev PATH"
     return 1
   let metaPage = initMetaPage(args[0])
-  let rev = initRevisionHistory(metaPage.page.id)
+  let rev = initMetaRevisions(metaPage.page.id)
   if verbose:
     echo pretty( %*rev)
   else:
-    echo rev.chain()
+    for id, body in rev.chain():
+      echo &"\n========{id}========\n"
+      echo body
   return 0
 
 when is_main_module:
   import cligen
-  clCfg.version = "v0.1.0"
+  clCfg.version = "v0.1.1"
 
   dispatchMulti(
     [subcmdGet, cmdName = "get", help = "growiapi get PATH"],

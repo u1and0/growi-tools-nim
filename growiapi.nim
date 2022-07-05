@@ -278,20 +278,6 @@ proc subcmdRev(verbose = false, args: seq[string]): int =
   return 0
 
 when is_main_module:
-  # var args: seq[string]
-  # var opts: Opts
-  # for kind, key, val in getopt(commandLineParams()):
-  #   case kind
-  #   of cmdArgument:
-  #     args.add(key)
-  #   of cmdLongOption, cmdShortOption:
-  #     case key
-  #     of "help", "h": echoHelp(0)
-  #     of "list", "l": opts.list = true
-  #     of "revision", "r": opts.rev = true
-  #   of cmdEnd: assert(false)
-  # if args == @[]: echoHelp(1)
-
   import cligen
   clCfg.version = "v0.1.0"
 
@@ -303,21 +289,3 @@ when is_main_module:
     [subcmdList, cmdName = "list", help = "growiapi list PATH"],
     [subcmdRev, cmdName = "rev", help = "growiapi rev PATH"],
   )
-
-  # let metaPage = initMetaPage(args[0])
-  # if opts.list and metaPage.exist:
-  #   echo metaPage.list().body.parseJson().pretty()
-  # elif opts.rev and metaPage.exist:
-  #   let rev = initRevisionHistory(metaPage.page.id)
-  #   echo $rev
-  # elif args.len() == 1 and metaPage.exist:
-  #   # GET method
-  #   echo metaPage.page.revision.body
-  # elif args.len() == 2:
-  #   # POST method
-  #   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
-  #   let res: Response = metaPage.post(body)
-  #   echo res.status & "\n" & res.body
-  # else:
-  #   echo metaPage
-  #   echoHelp(1)

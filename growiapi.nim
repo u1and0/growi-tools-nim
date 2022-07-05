@@ -26,17 +26,22 @@ CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 
 type
   ## _api/v3/page で取得できるJSONオブジェクトのrevision要素
-  Revision = tuple[id, body, pageId: string]
+  Revision = object
+    id: string
+    body: string
+    pageId: string
 
   ## _api/v3/page で取得できるJSONオブジェクトのcreator要素
-  Creator = tuple[name, username: string]
+  Creator = object
+    name: string
+    username: string
 
   ## _api/v3/page で取得できるJSONオブジェクトのpage要素
-  Page = tuple[
-    id, path: string,
-    revision: Revision,
-    creator: Creator,
-    ]
+  Page = object
+    id: string
+    path: string
+    revision: Revision
+    creator: Creator
 
   ## _api/v3/page で取得できるJSONオブジェクトとページの存在、エラーメッセージ
   MetaPage = object
@@ -188,7 +193,7 @@ proc growiApiGet(verbose = false, args: seq[string]): int =
     return 1
   let metaPage = initMetaPage(args[0])
   if verbose:
-    echo pretty( % metaPage.page)
+    echo pretty( %* metaPage.page)
   else:
     echo metaPage.page.revision.body
   return 0
@@ -201,7 +206,6 @@ proc growiApiPost(verbose = false, args: seq[string]): int =
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
   let res: Response = metaPage.post(body)
   if verbose:
-    echo res.status
     echo res.body.parseJson().pretty()
   else:
     discard res
@@ -218,7 +222,6 @@ proc growiApiUpdate(verbose = false, args: seq[string]): int =
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
   let res: Response = metaPage.update(body)
   if verbose:
-    echo res.status
     echo res.body.parseJson().pretty()
   else:
     discard res
@@ -235,7 +238,6 @@ proc growiApiCreate(verbose = false, args: seq[string]): int =
   let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
   let res: Response = metaPage.create(body)
   if verbose:
-    echo res.status
     echo res.body.parseJson().pretty()
   else:
     discard res
@@ -248,7 +250,6 @@ proc growiApiList(verbose = false, args: seq[string]): int =
   let metaPage = initMetaPage(args[0])
   let res: Response = metaPage.list()
   if verbose:
-    echo res.status
     echo res.body.parseJson().pretty()
   else:
     for i in metaPage.tree():

@@ -13,6 +13,8 @@ import strutils
 import sugar
 import tables
 import strformat
+import sets
+import options
 
 ## Get token from https://demo.growi.org/me
 let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
@@ -168,9 +170,13 @@ proc get(self: MetaRevisions): Response =
   CLIENT.get(URI / "_api/v3/revisions/list" ? q)
 
 proc chain(self: MetaRevisions): OrderedTable[string, string] =
-  let docs: seq[Doc] = self.revisions.docs
-  result = collect(initOrderedTable(5)):
-    for doc in docs: {doc.id: doc.body}
+  collect(initOrderedTable(5)):
+    for doc in self.revisions.docs: {doc.id: doc.body}
+
+proc authors(self: MetaRevisions): HashSet[string] =
+  for doc in self.revisions.docs:
+    let a = try: doc.author.id except KeyError: continue
+    result.incl(a)
 
 proc initMetaRevisions(id: string): MetaRevisions =
   result = MetaRevisions()
@@ -255,7 +261,7 @@ proc subcmdList(verbose = false, args: seq[string]): int =
       echo i
   return 0
 
-proc subcmdRev(verbose = false, args: seq[string]): int =
+proc subcmdRev(verbose = false, authors = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi rev PATH"
     return 1
@@ -263,6 +269,8 @@ proc subcmdRev(verbose = false, args: seq[string]): int =
   let rev = initMetaRevisions(metaPage.page.id)
   if verbose:
     echo pretty( %*rev)
+  elif authors:
+    echo rev.authors()
   else:
     for id, body in rev.chain():
       echo &"\n========{id}========\n"

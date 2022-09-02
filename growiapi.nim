@@ -30,38 +30,39 @@ CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 
 type
   ## _api/v3/page で取得できるJSONオブジェクトのrevision要素
-  Revision = object
-    id: string
-    body: string
-    pageId: string
+  Revision* = object
+    id*: string
+    body*: string
+    pageId*: string
 
   ## _api/v3/page で取得できるJSONオブジェクトのcreator要素
-  Creator = object
-    name: string
-    username: string
+  Creator* = object
+    name*: string
+    username*: string
 
   ## _api/v3/page で取得できるJSONオブジェクトのpage要素
-  Page = object
-    id: string
-    path: string
-    revision: Revision
-    creator: Creator
+  Page* = object
+    id*: string
+    path*: string
+    revision*: Revision
+    creator*: Creator
 
   ## _api/v3/page で取得できるJSONオブジェクトとページの存在、エラーメッセージ
-  MetaPage = object
-    page: Page
+  MetaPage* = object
+    page*: Page
+    limit: int
     exist: bool
     error: string
 
   ## _api/pages.list で取得できるJSONオブジェクトのpages要素
-  ClassicalPage = tuple[
+  ClassicalPage* = tuple[
     id, path, creator, revision: string,
     liker, seenUsers: seq[string],
     commentCount: int
     ]
-  Pages = seq[ClassicalPage]
+  Pages* = seq[ClassicalPage]
 
-proc create(self: MetaPage, body: string): Response =
+proc create*(self: MetaPage, body: string): Response =
   ## パスの内容へbodyを書き込む
   let param = %* {
     "body": body,
@@ -70,7 +71,7 @@ proc create(self: MetaPage, body: string): Response =
   }
   CLIENT.request(URI / "_api/v3/pages", httpMethod = HttpPost, body = $param)
 
-proc update(self: MetaPage, body: string): Response =
+proc update*(self: MetaPage, body: string): Response =
   ## パスの内容をbodyで更新する
   if body == self.page.revision.body:
     var e: ref HttpRequestError
@@ -85,7 +86,7 @@ proc update(self: MetaPage, body: string): Response =
   }
   CLIENT.request(URI / "_api/pages.update", httpMethod = HttpPost, body = $param)
 
-proc post(self: MetaPage, body: string): Response =
+proc post*(self: MetaPage, body: string): Response =
   ## 指定パスに
   ## ページが存在すれば_update(),
   ## ページが存在しなければ_create()
@@ -95,17 +96,17 @@ proc post(self: MetaPage, body: string): Response =
   else:
     self.create(body)
 
-proc get(self: MetaPage): Response =
+proc get*(self: MetaPage): Response =
   ## パスのページをJSONで取得する
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/v3/page" ? q)
 
-proc list(self: MetaPage): Response =
+proc list*(self: MetaPage): Response =
   ## パス配下のpage情報を取得する
-  let q = {"access_token": TOKEN, "path": self.page.path}
+  let q = {"access_token": TOKEN, "path": self.page.path, "limit": $self.limit}
   CLIENT.get(URI / "_api/pages.list" ? q)
 
-proc tree(self: MetaPage): seq[string] =
+proc tree*(self: MetaPage): seq[string] =
   let res = self.list()
   # underscoreをobjectのfield名にできない仕様のせいで
   # stringを一部underscoreなしにする
@@ -116,7 +117,7 @@ proc tree(self: MetaPage): seq[string] =
   result = collect(newSeq):
     for item in pages: item.path
 
-proc initMetaPage(path: string): MetaPage =
+proc initMetaPage*(path: string, limit = 50): MetaPage =
   ## GrowiへのAPIアクセス
   ## # Usage
   ## 環境変数に `_GROWI_ACCESS_TOKEN` `GROWI_URL` をセットする必要がある。
@@ -133,6 +134,7 @@ proc initMetaPage(path: string): MetaPage =
   ## metaPage.list(): パス配下の情報をJSONで取得する
   result = MetaPage()
   result.page.path = path
+  result.limit = limit
 
   let res: Response = result.get()
   case res.status:
@@ -151,34 +153,34 @@ proc initMetaPage(path: string): MetaPage =
 
 
 type
-  Author = object
+  Author* = object
     name, username, createdAt, id: string
-  Doc = object
-    id, pageId, body: string
-    author: Author
-  Revisions = object
-    docs: seq[Doc]
-    page: int
-    totalDocs: int
-  MetaRevisions = object
+  Doc* = object
+    id*, pageId*, body*: string
+    author*: Author
+  Revisions* = object
+    docs*: seq[Doc]
+    page*: int
+    totalDocs*: int
+  MetaRevisions* = object
     revisions: Revisions
     pageId: string
     page: int
 
-proc get(self: MetaRevisions): Response =
+proc get*(self: MetaRevisions): Response =
   let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
   CLIENT.get(URI / "_api/v3/revisions/list" ? q)
 
-proc chain(self: MetaRevisions): OrderedTable[string, string] =
+proc chain*(self: MetaRevisions): OrderedTable[string, string] =
   collect(initOrderedTable(5)):
     for doc in self.revisions.docs: {doc.id: doc.body}
 
-proc authors(self: MetaRevisions): HashSet[string] =
+proc authors*(self: MetaRevisions): HashSet[string] =
   for doc in self.revisions.docs:
     let a = try: doc.author.id except KeyError: continue
     result.incl(a)
 
-proc initMetaRevisions(id: string): MetaRevisions =
+proc initMetaRevisions*(id: string): MetaRevisions =
   result = MetaRevisions()
   result.page = 0
   result.pageId = id

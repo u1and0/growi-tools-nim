@@ -54,14 +54,6 @@ type
     exist: bool
     error: string
 
-  ## _api/pages.list で取得できるJSONオブジェクトのpages要素
-  ClassicalPage* = tuple[
-    id, path, creator, revision: string,
-    liker, seenUsers: seq[string],
-    commentCount: int
-    ]
-  Pages* = seq[ClassicalPage]
-
 proc create*(self: MetaPage, body: string): Response =
   ## パスの内容へbodyを書き込む
   let param = %* {
@@ -106,17 +98,6 @@ proc list*(self: MetaPage): Response =
   let q = {"access_token": TOKEN, "path": self.page.path, "limit": $self.limit}
   CLIENT.get(URI / "_api/pages.list" ? q)
 
-proc tree*(self: MetaPage): seq[string] =
-  let res = self.list()
-  # underscoreをobjectのfield名にできない仕様のせいで
-  # stringを一部underscoreなしにする
-  let jsonStr = res.body.multiReplace(
-    ("\"_id\":", "\"id\":")
-  )
-  let pages = jsonStr.parseJson()["pages"].to(Pages)
-  result = collect(newSeq):
-    for item in pages: item.path
-
 proc initMetaPage*(path: string, limit = 50): MetaPage =
   ## GrowiへのAPIアクセス
   ## # Usage
@@ -151,6 +132,35 @@ proc initMetaPage*(path: string, limit = 50): MetaPage =
       result.error = $parseJson(res.body)["errors"]
       result.page.path = path
 
+## _api/pages.list で取得できるJSONオブジェクトのpages要素
+type
+  ClassicalPage* = tuple[
+    id, path, creator, revision: string,
+    liker, seenUsers: seq[string],
+    commentCount: int
+    ]
+  Pages* = seq[ClassicalPage]
+
+proc initClassicalPage*(path: string): ClassicalPage =
+  let metaPage = initMetaPage(path, limit = 1)
+  let res: Response = metaPage.list()
+  # underscoreをobjectのfield名にできない仕様のせいで
+  # stringを一部underscoreなしにする
+  let jsonStr = res.body.multiReplace(
+    ("\"_id\":", "\"id\":")
+  )
+  result = jsonStr.parseJson()["pages"][0].to(ClassicalPage)
+
+proc tree*(self: MetaPage): seq[string] =
+  let res = self.list()
+  # underscoreをobjectのfield名にできない仕様のせいで
+  # stringを一部underscoreなしにする
+  let jsonStr = res.body.multiReplace(
+    ("\"_id\":", "\"id\":")
+  )
+  let pages = jsonStr.parseJson()["pages"].to(Pages)
+  result = collect(newSeq):
+    for item in pages: item.path
 
 type
   Author* = object
@@ -193,7 +203,7 @@ proc initMetaRevisions*(id: string): MetaRevisions =
   )
   result.revisions = jsonStr.parseJson().to(Revisions)
 
-# ここからCLI実装
+# CLI実装
 proc subcmdGet(verbose = false, args: seq[string]): int =
   if len(args) != 1:
     echo "usage: growiapi get PATH"
@@ -281,7 +291,7 @@ proc subcmdRev(verbose = false, authors = false, args: seq[string]): int =
 
 when is_main_module:
   import cligen
-  clCfg.version = "v0.1.1"
+  clCfg.version = "v0.1.1r"
 
   dispatchMulti(
     [subcmdGet, cmdName = "get", help = "growiapi get PATH"],

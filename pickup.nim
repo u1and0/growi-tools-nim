@@ -7,7 +7,6 @@
 #   * ライク数
 #   * コメント数
 #   * 足跡数
-#   * コメント数
 #   * 本文
 ]#
 import std/httpclient
@@ -27,25 +26,21 @@ let path = sample(pageList)
 let title = path.rsplit("/", 1)[1]
 
 # ページ情報取得
-let metaPage = initMetaPage(path)
-let page = metaPage.page
-
-# let pages = metapage.tree()
-# echo "作成者: " & page.creator.username
+let page = initMetaPage(path).page
 let creator: string = page.creator.username
-  # echo "ライク数: " & $rev0.liker
+let pageInfo: ClassicalPage = initClassicalPage(path)
 
-
-# 本文
+# サンプルページの本文
 let body = page.revision.body
 
+# 掲載記事本文
 let payload = &"""[[{title}>{path}]]
 
 <span class="badge badge-primary">作成者: {creator}</span>
-<span class="badge badge-pink">ライク数: 000</span>
-<span class="badge badge-orange">足跡数: 000</span>
+<span class="badge badge-pink">ライク数: {len(pageInfo.liker)}</span>
+<span class="badge badge-orange">足跡数: {len(pageInfo.seenUsers)}</span>
 <span class="badge badge-teal">編集者数: 000</span>
-<span class="badge badge-indigo">コメント数数: 000</span>
+<span class="badge badge-indigo">コメント数: {pageInfo.commentCount}</span>
 
 {body}"""
 

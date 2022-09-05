@@ -28,6 +28,14 @@ let URI = getEnv("GROWI_URL", "http://localhost:3000").parseUri()
 let CLIENT = newHttpClient()
 CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 
+## jsonReplace(): jsonフィールドを任意に変更する
+# underscoreをobjectのfield名にできない仕様のせいで
+# stringを一部underscoreなしにする
+proc jsonReplace(body: string): string =
+  return body.multiReplace(
+    ("\"_id\":", "\"id\":")
+  )
+
 type
   ## _api/v3/page で取得できるJSONオブジェクトのrevision要素
   Revision* = object
@@ -120,11 +128,7 @@ proc initMetaPage*(path: string, limit = 50): MetaPage =
   let res: Response = result.get()
   case res.status:
     of $Http200:
-      # underscoreをobjectのfield名にできない仕様のせいで
-      # stringを一部underscoreなしにする
-      let jsonStr = res.body.multiReplace(
-        ("\"_id\":", "\"id\":")
-      )
+      let jsonStr = res.body.jsonReplace()
       result.page = to(parseJson(jsonStr)["page"], Page)
       result.exist = true
     else:
@@ -144,20 +148,12 @@ type
 proc initClassicalPage*(path: string): ClassicalPage =
   let metaPage = initMetaPage(path, limit = 1)
   let res: Response = metaPage.list()
-  # underscoreをobjectのfield名にできない仕様のせいで
-  # stringを一部underscoreなしにする
-  let jsonStr = res.body.multiReplace(
-    ("\"_id\":", "\"id\":")
-  )
+  let jsonStr = res.body.jsonReplace()
   result = jsonStr.parseJson()["pages"][0].to(ClassicalPage)
 
 proc tree*(self: MetaPage): seq[string] =
   let res = self.list()
-  # underscoreをobjectのfield名にできない仕様のせいで
-  # stringを一部underscoreなしにする
-  let jsonStr = res.body.multiReplace(
-    ("\"_id\":", "\"id\":")
-  )
+  let jsonStr = res.body.jsonReplace()
   let pages = jsonStr.parseJson()["pages"].to(Pages)
   result = collect(newSeq):
     for item in pages: item.path
@@ -196,11 +192,7 @@ proc initMetaRevisions*(id: string): MetaRevisions =
   result.pageId = id
 
   let res = result.get()
-  # underscoreをobjectのfield名にできない仕様のせいで
-  # stringを一部underscoreなしにする
-  let jsonStr = res.body.multiReplace(
-    ("\"_id\":", "\"id\":")
-  )
+  let jsonStr = res.body.jsonReplace()
   result.revisions = jsonStr.parseJson().to(Revisions)
 
 # CLI実装
@@ -291,7 +283,7 @@ proc subcmdRev(verbose = false, authors = false, args: seq[string]): int =
 
 when is_main_module:
   import cligen
-  clCfg.version = "v0.1.1r"
+  clCfg.version = "v0.1.2"
 
   dispatchMulti(
     [subcmdGet, cmdName = "get", help = "growiapi get PATH"],

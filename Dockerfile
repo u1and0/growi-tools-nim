@@ -27,5 +27,5 @@ CMD ["crond", "&&", "tail", "-f"]
 
 LABEL maintainer="u1and0 <e01.ando60@gmail.com>" \
       description="Growiピックアップ記事を/ピックアップ記事へ投稿する。" \
-      version="growi-pickup:v0.1.0" \
+      version="growi-pickup:v0.1.1" \
       usage="docker run -t --rm u1and0/growi-ranking"

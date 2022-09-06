@@ -48,15 +48,13 @@ type
     name*: string
     username*: string
 
-  ## _api/v3/page で取得できるJSONオブジェクトのpage要素
-  Page* = object
+  Page* = object ## _api/v3/page で取得できるJSONオブジェクトのpage要素
     id*: string
     path*: string
     revision*: Revision
     creator*: Creator
 
-  ## _api/v3/page で取得できるJSONオブジェクトとページの存在、エラーメッセージ
-  MetaPage* = object
+  MetaPage* = object ## _api/v3/page で取得できるJSONオブジェクトとページの存在、エラーメッセージ
     page*: Page
     limit: int
     exist: bool
@@ -177,14 +175,14 @@ proc get*(self: MetaRevisions): Response =
   let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
   CLIENT.get(URI / "_api/v3/revisions/list" ? q)
 
-proc chain*(self: MetaRevisions): OrderedTable[string, string] =
+proc chain*(self: MetaRevisions): OrderedTable[Doc.id, Doc.body] =
   collect(initOrderedTable(5)):
     for doc in self.revisions.docs: {doc.id: doc.body}
 
-proc authors*(self: MetaRevisions): HashSet[string] =
+proc authors*(self: MetaRevisions): seq[Author.id] =
   for doc in self.revisions.docs:
     let a = try: doc.author.id except KeyError: continue
-    result.incl(a)
+    result.add(a)
 
 proc initMetaRevisions*(id: string): MetaRevisions =
   result = MetaRevisions()

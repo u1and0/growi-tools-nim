@@ -1,3 +1,4 @@
 growiapi
 pickup
 *.exe
+/test/

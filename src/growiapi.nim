@@ -13,7 +13,6 @@ import strutils
 import sugar
 import tables
 import strformat
-import sets
 import options
 
 ## Get token from https://demo.growi.org/me
@@ -99,10 +98,13 @@ proc get*(self: MetaPage): Response =
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/v3/page" ? q)
 
-proc list*(self: MetaPage): Response =
-  ## パス配下のpage情報を取得する
-  let q = {"access_token": TOKEN, "path": self.page.path, "limit": $self.limit}
-  CLIENT.get(URI / "_api/pages.list" ? q)
+# pages.list がdeprecated になったようだ。使えない。
+# 相当するAPIも見つからない
+#
+# proc list*(self: MetaPage): Response =
+#   ## パス配下のpage情報を取得する
+#   let q = {"access_token": TOKEN, "path": self.page.path, "limit": $self.limit}
+#   CLIENT.get(URI / "_api/pages.list" ? q)
 
 proc initMetaPage*(path: string, limit = 50): MetaPage =
   ## GrowiへのAPIアクセス
@@ -143,18 +145,19 @@ type
     ]
   Pages* = seq[ClassicalPage]
 
-proc initClassicalPage*(path: string): ClassicalPage =
-  let metaPage = initMetaPage(path, limit = 1)
-  let res: Response = metaPage.list()
-  let jsonStr = res.body.jsonReplace()
-  result = jsonStr.parseJson()["pages"][0].to(ClassicalPage)
+# proc initClassicalPage*(path: string): ClassicalPage =
+#   let metaPage = initMetaPage(path, limit = 1)
+#   let res: Response = metaPage.list()
+#   let jsonStr = res.body.jsonReplace()
+#   result = jsonStr.parseJson()["pages"][0].to(ClassicalPage)
 
-proc tree*(self: MetaPage): seq[string] =
-  let res = self.list()
-  let jsonStr = res.body.jsonReplace()
-  let pages = jsonStr.parseJson()["pages"].to(Pages)
-  result = collect(newSeq):
-    for item in pages: item.path
+# proc tree*(self: MetaPage): seq[string] =
+#   let res = self.list()
+#   let jsonStr = res.body.jsonReplace()
+#   echo "Debug printing from Growi" & jsonStr
+#   let pages = jsonStr.parseJson()["pages"].to(Pages)
+#   result = collect(newSeq):
+#     for item in pages: item.path
 
 type
   Author* = object
@@ -250,18 +253,18 @@ proc subcmdCreate(verbose = false, args: seq[string]): int =
     discard res
   return 0
 
-proc subcmdList(verbose = false, args: seq[string]): int =
-  if len(args) != 1:
-    echo "usage: growiapi list PATH"
-    return 1
-  let metaPage = initMetaPage(args[0])
-  let res: Response = metaPage.list()
-  if verbose:
-    echo res.body.parseJson().pretty()
-  else:
-    for i in metaPage.tree():
-      echo i
-  return 0
+# proc subcmdList(verbose = false, args: seq[string]): int =
+#   if len(args) != 1:
+#     echo "usage: growiapi list PATH"
+#     return 1
+#   let metaPage = initMetaPage(args[0])
+#   let res: Response = metaPage.list()
+#   if verbose:
+#     echo res.body.parseJson().pretty()
+#   else:
+#     for i in metaPage.tree():
+#       echo i
+#   return 0
 
 proc subcmdRev(verbose = false, authors = false, args: seq[string]): int =
   if len(args) != 1:
@@ -281,13 +284,13 @@ proc subcmdRev(verbose = false, authors = false, args: seq[string]): int =
 
 when is_main_module:
   import cligen
-  clCfg.version = "v0.1.2"
+  clCfg.version = "v0.1.3"
 
   dispatchMulti(
     [subcmdGet, cmdName = "get", help = "growiapi get PATH"],
     [subcmdPost, cmdName = "post", help = "growiapi post PATH BODY"],
     [subcmdUpdate, cmdName = "update", help = "growiapi update PATH BODY"],
     [subcmdCreate, cmdName = "create", help = "growiapi create PATH BODY"],
-    [subcmdList, cmdName = "list", help = "growiapi list PATH"],
+    # [subcmdList, cmdName = "list", help = "growiapi list PATH"],
     [subcmdRev, cmdName = "rev", help = "growiapi rev PATH"],
   )

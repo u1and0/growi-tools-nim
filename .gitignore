@@ -2,3 +2,8 @@ growiapi
 pickup
 *.exe
 /test/
+/.opencode/
+!.opencode/node_modules
+/bin/
+/nimcache/
+Session.vim

@@ -1,0 +1,77 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "enabled_providers": ["ollama"],
+    "model": "ollama/ornith-1.5:9b",
+    "mcpServers": {
+      "nim": {
+        "type": "stdio",
+        "command": "nimlangserver",
+        "args": ["--mcp"]
+      }
+    },
+    "provider": {
+        "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "options": {
+                "baseURL": "{env:PRIVATE_SERVER_BASE}:11434/v1"
+            },
+            "models": {
+                "ornith-1.5:9b": {
+                    "tools": true,
+                    "max_tokens": 64000
+                },
+                "qwen3.5:4b": {
+                    "tools": true,
+                    "max_tokens": 64000
+                },
+                "qwen3.5:latest": {
+                    "tools": true,
+                    "max_tokens": 64000
+                },
+                "qwen3.6:latest": {
+                    "tools": true,
+                    "max_tokens": 64000
+                },
+                "gemma4:31b": {
+                    "tools": true,
+                    "max_tokens": 64000
+                },
+                "gemma4:e2b": {
+                    "tools": true,
+                    "max_tokens": 64000
+                },
+                "gemma4:e4b": {
+                    "tools": true,
+                    "max_tokens": 64000
+                }
+            }
+        }
+    },
+    "permission": {
+        "read": "allow",
+        "write": "allow",
+        "edit": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "task": "allow",
+        "question": "allow",
+        "bash": {
+            "*": "ask",
+            "ls *": "allow",
+            "cat *": "allow",
+            "git status *": "allow",
+            "git diff *": "allow",
+            "npm run *": "ask",
+            "python *": "ask"
+        },
+        "external_directory": "ask",
+        "doom_loop": "ask"
+    },
+    "formatter":{
+        "nim-formatter":{
+            "command": ["nimpretty", "$FILE"],
+            "extensions": [".nim"]
+        }
+    }
+}

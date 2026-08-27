@@ -196,6 +196,35 @@ proc initMetaRevisions*(id: string): MetaRevisions =
   let jsonStr = res.body.jsonReplace()
   result.revisions = jsonStr.parseJson().to(Revisions)
 
+
+# ヘルパー関数群
+
+proc postProcessing(res: Response, v: bool): int =
+  ## レスポンス取得後、詳細表示するならレスポンスボディを表示
+  ## ステータスが200番台なら正常終了、
+  ## そうでなければステータスコードとボディを表示して異常終了
+  if v:
+    try:
+      echo res.body.parseJson().pretty()
+    except JsonParsingError:
+      echo res.body
+
+  if res.status.startsWith("2"):
+    return 0
+  else:
+    if not v:
+      stderr.writeLine "error: API returned ", res.status
+      stderr.writeLine res.body
+      return 4
+
+proc parseBody(s: string): string =
+  ## bodyがファイルパスであれば、ファイルの内容を読む
+  ## そうでなければ文字列としてセット
+  if fileExists(s):
+    return readFile(s)
+  return s
+
+
 # CLI実装
 proc subcmdGet(verbose = false, args: seq[string]): int =
   if len(args) != 1:
@@ -212,14 +241,12 @@ proc subcmdPost(verbose = false, args: seq[string]): int =
   if len(args) != 2:
     echo "usage: growiapi post PATH BODY"
     return 1
+
   let metaPage = initMetaPage(args[0])
-  let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
+  let body = parseBody(args[1])
   let res: Response = metaPage.post(body)
-  if verbose:
-    echo res.body.parseJson().pretty()
-  else:
-    discard res
-  return 0
+
+  postProcessing(res, verbose)
 
 proc subcmdUpdate(verbose = false, args: seq[string]): int =
   # 引数がなければ終了
@@ -233,26 +260,10 @@ proc subcmdUpdate(verbose = false, args: seq[string]): int =
     echo "error: not exist path. try `growiapi create PATH BODY`."
     return 2
 
-  # bodyがファイルパスであれば、ファイルの内容を読む
-  # そうでなければ文字列としてセット
-  let body: string =
-    if fileExists(args[1]): readFile(args[1])
-    else: args[1]
-
+  let body = parseBody(args[1])
   let res: Response = metaPage.update(body)
-  if verbose:
-    try:
-      echo res.body.parseJson().pretty()
-    except JsonParsingError:
-      echo res.body
 
-  if res.status.startsWith("2"):
-    return 0
-  else:
-    if not verbose:
-      stderr.writeLine "error: API returned ", res.status
-      stderr.writeLine res.body
-      return 4
+  postProcessing(res, verbose)
 
 proc subcmdCreate(verbose = false, args: seq[string]): int =
   # 引数がなければ終了
@@ -266,12 +277,7 @@ proc subcmdCreate(verbose = false, args: seq[string]): int =
     echo "error: exist path. try `growiapi update PATH BODY`."
     return 2
 
-  # bodyがファイルパスであれば、ファイルの内容を読む
-  # そうでなければ文字列としてセット
-  let body: string =
-    if fileExists(args[1]): readFile(args[1])
-    else: args[1]
-
+  let body = parseBody(args[1])
   # タイムアウト・通信エラー
   let res: Response =
     try:
@@ -280,19 +286,7 @@ proc subcmdCreate(verbose = false, args: seq[string]): int =
       stderr.writeLine "error: request failed:", e.msg
       return 3
 
-  if verbose:
-    try:
-      echo res.body.parseJson().pretty()
-    except JsonParsingError:
-      echo res.body
-
-  if res.status.startsWith("2"):
-    return 0
-  else:
-    if not verbose:
-      stderr.writeLine "error: API returned ", res.status
-      stderr.writeLine res.body
-      return 4
+  postProcessing(res, verbose)
 
 
 # proc subcmdList(verbose = false, args: seq[string]): int =
@@ -326,7 +320,7 @@ proc subcmdRev(verbose = false, authors = false, args: seq[string]): int =
 
 when is_main_module:
   import cligen
-  clCfg.version = "v0.1.3"
+  clCfg.version = "v0.1.3r"
 
   dispatchMulti(
     [subcmdGet, cmdName = "get", help = "growiapi get PATH"],

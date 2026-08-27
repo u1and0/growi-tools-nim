@@ -13,7 +13,6 @@ import strutils
 import sugar
 import tables
 import strformat
-import options
 
 ## Get token from https://demo.growi.org/me
 let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
@@ -98,13 +97,40 @@ proc get*(self: MetaPage): Response =
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/v3/page" ? q)
 
+proc getPages*(path = "/", limit = "20", page = "1"): Response =
+  ## ```sh
+  ## curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=872&limit=1" | jq -r
+  ## ```
+  ##
+  ## これで最初に作ったページを表示する(total count 872のとき)
+  ##
+  ## ```sh
+  ## curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=1&limit=1" | jq -r
+  ## ```
+  ##
+  ## これで最後に作られたページを表示する
+  ##
+  ## limit: 表示するページの数、default 20, max 100
+  ## path: 探索するページのルート
+  ## page: オフセットと関係する。 だいたい offset = page x limit っぽい。
+  let q = {
+    "access_token": TOKEN,
+    "path": path,
+    "limit": $limit,
+    "page": $page,
+  }
+  CLIENT.get(URI / "_api/v3/pages/list" ? q)
+
 # pages.list がdeprecated になったようだ。使えない。
 # 相当するAPIも見つからない
-#
 # proc list*(self: MetaPage): Response =
 #   ## パス配下のpage情報を取得する
-#   let q = {"access_token": TOKEN, "path": self.page.path, "limit": $self.limit}
-#   CLIENT.get(URI / "_api/pages.list" ? q)
+#   let q = {
+#     "access_token": TOKEN,
+#     "path": self.page.path,
+#     "limit": $self.limit
+#   }
+#   CLIENT.get(URI / "_api/v3/pages/list" ? q)
 
 proc initMetaPage*(path: string, limit = 50): MetaPage =
   ## GrowiへのAPIアクセス
@@ -318,6 +344,26 @@ proc subcmdRev(verbose = false, authors = false, args: seq[string]): int =
       echo body
   return 0
 
+proc subcmdGetPages(verbose = false, args: seq[string]): int =
+  ## PATH下のページをLIMIT件まで表示する
+  ## ただし、OFFSETで表示開始位置をシフトできる
+  if len(args) > 4:
+    echo "usage: growiapi rev PATH [LIMIT] [OFFSET]"
+    return 1
+
+
+  # デフォルトパラメータを使うので、引数の数に応じて渡す変数が異なる
+  let res = case args.len
+    of 0: getPages()
+    of 1: getPages(args[0])
+    of 2: getPages(args[0], args[1])
+    else: getPages(args[0], args[1], args[2])
+
+  if verbose:
+    echo res.body.parseJson().pretty()
+  else: # pages プロパティのみ表示
+    echo pretty( %* res.body.parseJson()["pages"])
+
 when is_main_module:
   import cligen
   clCfg.version = "v0.1.3r"
@@ -329,4 +375,5 @@ when is_main_module:
     [subcmdCreate, cmdName = "create", help = "growiapi create PATH BODY"],
     # [subcmdList, cmdName = "list", help = "growiapi list PATH"],
     [subcmdRev, cmdName = "rev", help = "growiapi rev PATH"],
+    [subcmdGetPages, cmdName = "pages", help = "growiapi pages PATH [LIMIT] [OFFSET]"],
   )

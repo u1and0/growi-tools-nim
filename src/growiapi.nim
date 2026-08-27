@@ -76,8 +76,8 @@ proc update*(self: MetaPage, body: string): Response =
     e.msg = "{\"error\": \"更新前後の内容が同じなので、更新しませんでした。\"}"
     raise e
   let param = %* {
-    "page_id": self.page.id,
-    "revision_id": self.page.revision.id,
+    "pageId": self.page.id,
+    "revisionId": self.page.revision.id,
     "body": body,
     "access_token": TOKEN,
   }
@@ -222,20 +222,37 @@ proc subcmdPost(verbose = false, args: seq[string]): int =
   return 0
 
 proc subcmdUpdate(verbose = false, args: seq[string]): int =
+  # 引数がなければ終了
   if len(args) != 2:
     echo "usage: growiapi update PATH BODY"
     return 1
+
+  # ページが存在しなければ終了j
   let metaPage = initMetaPage(args[0])
   if not metaPage.exist:
     echo "error: not exist path. try `growiapi create PATH BODY`."
     return 2
-  let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
+
+  # bodyがファイルパスであれば、ファイルの内容を読む
+  # そうでなければ文字列としてセット
+  let body: string =
+    if fileExists(args[1]): readFile(args[1])
+    else: args[1]
+
   let res: Response = metaPage.update(body)
   if verbose:
-    echo res.body.parseJson().pretty()
+    try:
+      echo res.body.parseJson().pretty()
+    except JsonParsingError:
+      echo res.body
+
+  if res.status.startsWith("2"):
+    return 0
   else:
-    discard res
-  return 0
+    if not verbose:
+      stderr.writeLine "error: API returned ", res.status
+      stderr.writeLine res.body
+      return 4
 
 proc subcmdCreate(verbose = false, args: seq[string]): int =
   # 引数がなければ終了
@@ -249,7 +266,7 @@ proc subcmdCreate(verbose = false, args: seq[string]): int =
     echo "error: exist path. try `growiapi update PATH BODY`."
     return 2
 
-  # bodyがファイルであれば、ファイルの内容を読む
+  # bodyがファイルパスであれば、ファイルの内容を読む
   # そうでなければ文字列としてセット
   let body: string =
     if fileExists(args[1]): readFile(args[1])

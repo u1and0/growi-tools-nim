@@ -64,9 +64,9 @@ proc create*(self: MetaPage, body: string): Response =
   let param = %* {
     "body": body,
     "path": self.page.path,
-    "access_token": TOKEN,
+    "access_token": TOKEN
   }
-  CLIENT.request(URI / "_api/v3/pages", httpMethod = HttpPost, body = $param)
+  CLIENT.request(URI / "_api/v3/page", httpMethod = HttpPost, body = $param)
 
 proc update*(self: MetaPage, body: string): Response =
   ## パスの内容をbodyで更新する
@@ -81,7 +81,7 @@ proc update*(self: MetaPage, body: string): Response =
     "body": body,
     "access_token": TOKEN,
   }
-  CLIENT.request(URI / "_api/pages.update", httpMethod = HttpPost, body = $param)
+  CLIENT.request(URI / "_api/v3/page", httpMethod = HttpPut, body = $param)
 
 proc post*(self: MetaPage, body: string): Response =
   ## 指定パスに
@@ -238,20 +238,45 @@ proc subcmdUpdate(verbose = false, args: seq[string]): int =
   return 0
 
 proc subcmdCreate(verbose = false, args: seq[string]): int =
+  # 引数がなければ終了
   if len(args) != 2:
     echo "usage: growiapi create PATH BODY"
     return 1
+
+  # 同一ページが存在すればupdateを使うように案内して終了
   let metaPage = initMetaPage(args[0])
   if metaPage.exist:
     echo "error: exist path. try `growiapi update PATH BODY`."
     return 2
-  let body: string = if fileExists(args[1]): readFile(args[1]) else: args[1]
-  let res: Response = metaPage.create(body)
+
+  # bodyがファイルであれば、ファイルの内容を読む
+  # そうでなければ文字列としてセット
+  let body: string =
+    if fileExists(args[1]): readFile(args[1])
+    else: args[1]
+
+  # タイムアウト・通信エラー
+  let res: Response =
+    try:
+      metaPage.create(body)
+    except CatchableError as e:
+      stderr.writeLine "error: request failed:", e.msg
+      return 3
+
   if verbose:
-    echo res.body.parseJson().pretty()
+    try:
+      echo res.body.parseJson().pretty()
+    except JsonParsingError:
+      echo res.body
+
+  if res.status.startsWith("2"):
+    return 0
   else:
-    discard res
-  return 0
+    if not verbose:
+      stderr.writeLine "error: API returned ", res.status
+      stderr.writeLine res.body
+      return 4
+
 
 # proc subcmdList(verbose = false, args: seq[string]): int =
 #   if len(args) != 1:

@@ -97,7 +97,11 @@ proc get*(self: MetaPage): Response =
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/v3/page" ? q)
 
-proc getPages*(path = "/", limit = "20", page = "1"): Response =
+proc getPages*(
+  path: string = "/",
+  limit: string = "20",
+  page: string = "1",
+  ): Response =
   ## ```sh
   ## curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=872&limit=1" | jq -r
   ## ```

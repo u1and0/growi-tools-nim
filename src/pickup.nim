@@ -23,22 +23,31 @@ import
   growiapi
 
 proc random_pickup(count: int = 1): Response =
-  ## ランダムにピックアップ
-  randomize() # seed初期化
-
   # Growiの記事総数を読み込み
-  let res: Response = getPages()
-  let pagesCount = res.body.parseJson()["totalCount"]
+  var res: Response
+  try:
+    res = getPages()
+  except CatchableError as e:
+    echo "Get response error", e.msg
+    return
+
+  var totalCount: string
+  try:
+    totalCount = $res.body.parseJson()["totalCount"]
+  except JsonParsingError:
+    echo res.status, res.body
+    return
 
   # 総数までのランダムな数字を取得
-  let randInt: int = rand(parseInt($pagesCount))
+  randomize() # seed初期化
+  let randInt: int = parseInt($totalCount).rand()
 
   # ページ情報の取得
   try:
-    let pageRes: Response = getPages(path = "/", limit = count, page = randInt)
-    return pageRes
+    return getPages(path = "/", limit = count, page = randInt)
   except CatchableError as e:
     echo "Get response error", e.msg
+    return
 
 
 when is_main_module:
@@ -46,7 +55,7 @@ when is_main_module:
   try:
     echo res.body.parseJson()["pages"]
   except JsonParsingError:
-    echo res.body
+    echo res.status, res.body
 
   # pageList = initMetaPage("/", limit = 10000).tree()
   # path = sample(pageList)

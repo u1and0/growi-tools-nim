@@ -99,8 +99,8 @@ proc get*(self: MetaPage): Response =
 
 proc getPages*(
   path: string = "/",
-  limit: string = "20",
-  page: string = "1",
+  limit: int = 20,
+  page: int = 1,
   ): Response =
   ## ```sh
   ## curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=872&limit=1" | jq -r
@@ -360,8 +360,12 @@ proc subcmdGetPages(verbose = false, args: seq[string]): int =
   let res = case args.len
     of 0: getPages()
     of 1: getPages(args[0])
-    of 2: getPages(args[0], args[1])
-    else: getPages(args[0], args[1], args[2])
+    of 2:
+      let limit = parseInt(args[1])
+      getPages(args[0], limit)
+    else:
+      let (limit, pages) = (parseInt(args[1]), parseInt(args[2]))
+      getPages(args[0], limit, pages)
 
   if verbose:
     echo res.body.parseJson().pretty()

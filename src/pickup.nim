@@ -22,14 +22,31 @@ import
   std/strutils,
   growiapi
 
-# ランダムにピックアップ
-randomize() # seed初期化
-let res: Response = getPages()
-let pagesCount = res.body.parseJson()["totalCount"]
-let n: int = rand(parseInt($pagesCount))
-let pageRes = getPages("/", "1", $n)
-echo pageRes.body.parseJson()["pages"]
-quit(0)
+proc random_pickup(count: int = 1): Response =
+  ## ランダムにピックアップ
+  randomize() # seed初期化
+
+  # Growiの記事総数を読み込み
+  let res: Response = getPages()
+  let pagesCount = res.body.parseJson()["totalCount"]
+
+  # 総数までのランダムな数字を取得
+  let randInt: int = rand(parseInt($pagesCount))
+
+  # ページ情報の取得
+  try:
+    let pageRes: Response = getPages(path = "/", limit = count, page = randInt)
+    return pageRes
+  except CatchableError as e:
+    echo "Get response error", e.msg
+
+
+when is_main_module:
+  let res = random_pickup()
+  try:
+    echo res.body.parseJson()["pages"]
+  except JsonParsingError:
+    echo res.body
 
   # pageList = initMetaPage("/", limit = 10000).tree()
   # path = sample(pageList)

@@ -17,12 +17,13 @@ import
   std/httpclient,
   std/json,
   std/random,
-  std/sets,
-  std/strformat,
   std/strutils,
   growiapi
 
-proc randomPickup(count: int = 1): PageList =
+proc randomPickup*(count: int = 1): PageList =
+  ## Growiからランダムに記事JSONをcount個取得して
+  ## PageList構造にパース
+
   # Growiの記事総数を読み込み
   var res: Response
   try:
@@ -38,7 +39,7 @@ proc randomPickup(count: int = 1): PageList =
     echo res.status, res.body
     return
 
-  # 総数までのランダムな数字を取得
+  # 最大値がページ総数までのランダムな数字を取得
   randomize() # seed初期化
   let randInt: int = parseInt($totalCount).rand()
 
@@ -61,37 +62,5 @@ proc randomPickup(count: int = 1): PageList =
   return jsn.to(PageList)
 
 when isMainModule:
-  let pagelist = randomPickup()
-  echo pageList
-  # echo pageList.totalCount
-  echo pageList.pages[0].path
-
-
-#[
-let                                      # 掲載記事挿入文
-  title = path.rsplit("/", 1)[1]         # タイトル(ページパス)
-  page = initMetaPage(path).page
-  creator = page.creator.username
-  pageInfo = initClassicalPage(path)     # ページ情報取得
-  body = page.revision.body              # サンプルページの本文
-  revisions = initMetaRevisions(page.id) # 編集履歴
-  authors: HashSet[Author.id] = toHashSet(revisions.authors())
-
-# 掲載記事本文
-let payload = &"""[[{title}>{path}]]
-
-<span class="badge badge-primary">作成者: {creator}</span>
-<span class="badge badge-pink">ライク数: {len(pageInfo.liker)}</span>
-<span class="badge badge-orange">足跡数: {len(pageInfo.seenUsers)}</span>
-<span class="badge badge-teal">編集者数: {len(authors)}</span>
-<span class="badge badge-indigo">コメント数: {pageInfo.commentCount}</span>
-
-{body}"""
-
-# echo payload
-
-# ページアップロード
-let pickupPage = initMetaPage("/ピックアップ記事")
-let res: Response = pickupPage.post(payload)
-echo res.body.parseJson().pretty()
-]#
+  let pageList = randomPickup()
+  echo pretty(%pageList) # 整形JSON表示

@@ -93,7 +93,7 @@ proc post*(self: MetaPage, body: string): Response =
     self.create(body)
 
 proc get*(self: MetaPage): Response =
-  ## パスのページをJSONで取得する
+  ## パスのページ内容をJSONで取得する
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/v3/page" ? q)
 

@@ -68,8 +68,6 @@ when isMainModule:
   let
     pageList: PageList = randomPickup()
     page: PageElement = pageList.pages[0]
-    meta: MetaPage = initMetaPage(page.path)
-  # echo pretty(%meta)
 
   let article = extractArticleData(page)
   echo article.createPageBody()

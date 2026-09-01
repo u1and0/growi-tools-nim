@@ -22,7 +22,7 @@ import
   std/strutils,
   growiapi
 
-proc random_pickup(count: int = 1): Response =
+proc randomPickup(count: int = 1): PageList =
   # Growiの記事総数を読み込み
   var res: Response
   try:
@@ -43,22 +43,29 @@ proc random_pickup(count: int = 1): Response =
   let randInt: int = parseInt($totalCount).rand()
 
   # ページ情報の取得
+  var pageRes: Response
   try:
-    return getPages(path = "/", limit = count, page = randInt)
+    pageRes = getPages(path = "/", limit = count, page = randInt)
   except CatchableError as e:
     echo "Get response error", e.msg
     return
 
-
-when is_main_module:
-  let res = random_pickup()
+  var jsn: JsonNode
   try:
-    echo res.body.parseJson()["pages"]
+    let jsnReplaced = jsonReplace(pageRes.body)
+    jsn = jsnReplaced.parseJson()
   except JsonParsingError:
     echo res.status, res.body
+    return
 
-  # pageList = initMetaPage("/", limit = 10000).tree()
-  # path = sample(pageList)
+  return jsn.to(PageList)
+
+when isMainModule:
+  let pagelist = randomPickup()
+  echo pageList
+  # echo pageList.totalCount
+  echo pageList.pages[0].path
+
 
 #[
 let                                      # 掲載記事挿入文

@@ -29,7 +29,7 @@ CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 ## jsonReplace(): jsonフィールドを任意に変更する
 # underscoreをobjectのfield名にできない仕様のせいで
 # stringを一部underscoreなしにする
-proc jsonReplace(body: string): string =
+proc jsonReplace*(body: string): string =
   return body.multiReplace(
     ("\"_id\":", "\"id\":")
   )
@@ -167,13 +167,16 @@ proc initMetaPage*(path: string, limit = 50): MetaPage =
       result.page.path = path
 
 ## _api/pages.list で取得できるJSONオブジェクトのpages要素
-type
-  ClassicalPage* = tuple[
-    id, path, creator, revision: string,
-    liker, seenUsers: seq[string],
-    commentCount: int
-    ]
-  Pages* = seq[ClassicalPage]
+## v3からは _api/v3/pages/list でも取得できる
+type PageElement* = object
+  id*, path*, creator*, revision*: string
+  liker*, seenUsers*: seq[string]
+  commentCount*: int
+
+type PageList* = object
+  pages*: seq[PageElement]
+  totalCount*, offset*, limit*: int
+
 
 # proc initClassicalPage*(path: string): ClassicalPage =
 #   let metaPage = initMetaPage(path, limit = 1)

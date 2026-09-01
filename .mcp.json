@@ -2,12 +2,18 @@
     "$schema": "https://opencode.ai/config.json",
     "enabled_providers": ["ollama"],
     "model": "ollama/ornith-1.5:9b",
-    "mcpServers": {
-      "nim": {
-        "type": "stdio",
-        "command": "nimlangserver",
-        "args": ["--mcp"]
+    "mcp": {
+      "nimlangserver": {
+        "type": "local",
+        "command": ["nimlangserver", "--mcp"],
+        "enabled":true
       }
+    },
+    "formatter":{
+        "nim-formatter":{
+            "command": ["nimpretty", "$FILE"],
+            "extensions": [".nim"]
+        }
     },
     "provider": {
         "ollama": {
@@ -17,32 +23,34 @@
             },
             "models": {
                 "ornith-1.5:9b": {
-                    "tools": true,
-                    "max_tokens": 64000
+                    "tools": true
                 },
                 "qwen3.5:4b": {
-                    "tools": true,
-                    "max_tokens": 64000
+                    "tools": true
                 },
                 "qwen3.5:latest": {
-                    "tools": true,
-                    "max_tokens": 64000
+                    "tools": true
+                },
+                "qwen3.6": {
+                    "tools": true
                 },
                 "qwen3.6:latest": {
-                    "tools": true,
-                    "max_tokens": 64000
+                    "tools": true
+                },
+                "qwen3.8": {
+                    "tools": true
+                },
+                "qwen3.8:latest": {
+                    "tools": true
                 },
                 "gemma4:31b": {
-                    "tools": true,
-                    "max_tokens": 64000
+                    "tools": true
                 },
                 "gemma4:e2b": {
-                    "tools": true,
-                    "max_tokens": 64000
+                    "tools": true
                 },
                 "gemma4:e4b": {
-                    "tools": true,
-                    "max_tokens": 64000
+                    "tools": true
                 }
             }
         }
@@ -67,11 +75,5 @@
         },
         "external_directory": "ask",
         "doom_loop": "ask"
-    },
-    "formatter":{
-        "nim-formatter":{
-            "command": ["nimpretty", "$FILE"],
-            "extensions": [".nim"]
-        }
     }
 }

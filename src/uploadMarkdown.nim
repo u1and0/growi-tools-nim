@@ -1,4 +1,5 @@
 import
+  std/strformat,
   std/sets,
   std/strutils,
   std/json,
@@ -9,49 +10,51 @@ import
 type ArticleData* = object
   title*: string
   path*: string
-  page*: Page
-  creator*: Creator
-  pageInfo*: MetaPage
+  creatorName*: string
   body*: string
+  commentCount*: int
+  # page element の情報を加工して得られる数値
+  likerNum: int
+  seenUsersNum: int
+
   # revisions*: MetaRevisions
   # authors*: HashSet[string]
 
 
-proc extractArticleData*(path: string): ArticleData =
+proc extractArticleData*(pageElem: PageElement): ArticleData =
   ## 記事情報の取得とオブジェクト生成
   let
+    path = pageElem.path
     title = path.rsplit("/", 1)[1]
     metaPage = initMetaPage(path)
     page = metaPage.page
-    creator = page.creator
-    pageInfo = initMetaPage(path)
-    body = page.revision.body
     # revisions = initMetaRevisions(page.id)
     # authors: HashSet[string] = toHashSet(revisions.authors())
 
   result = ArticleData(
     title: title,
     path: path,
-    page: page,
-    creator: creator,
-    pageInfo: pageInfo,
-    body: body,
+    creatorName: page.creator.name,
+    body: page.revision.body,
+    commentCount: pageElem.commentCount,
+    likerNum: len(pageElem.liker),
+    seenUsersNum: len(pageElem.seenUsers),
     # revisions: revisions,
       # authors: authors
   )
 
-# func createPageBody(path: string): string =
-#   ## 掲載記事本文の文字列を作成する
-#   let a = extractArticleData(path)
-#   return &"""[[{a.title}>{a.path}]]
-#
-#   <span class="badge badge-primary">作成者: {a.page.creator.name}</span>
-#   <span class="badge badge-pink">ライク数: {len(a.pageInfo.liker)}</span>
-#   <span class="badge badge-orange">足跡数: {len(a.pageInfo.seenUsers)}</span>
-#   <span class="badge badge-teal">編集者数: {len(a.authors)}</span>
-#   <span class="badge badge-indigo">コメント数: {a.pageInfo.commentCount}</span>
-#
-#   {a.page.body}"""
+func createPageBody(a: ArticleData): string =
+  ## 掲載記事本文の文字列を作成する
+  fmt"""[[{a.title}>{a.path}]]
+
+  <span class="badge badge-primary">作成者: {a.creatorName}</span>
+  <span class="badge badge-pink">ライク数: {a.likerNum}</span>
+  <span class="badge badge-orange">足跡数: {a.seenUsersNum}</span>
+  <span class="badge badge-teal">編集者数: 保留</span>
+  <span class="badge badge-indigo">コメント数: {a.commentCount}</span>
+
+  {a.body}"""
+  # <span class="badge badge-teal">編集者数: {len(a.authors)}</span>
 
 # proc uploadPickupArticle(page: Page): Response =
 #   ## "/ピックアップ記事"ページに記事内容を投稿する
@@ -68,8 +71,8 @@ when isMainModule:
     meta: MetaPage = initMetaPage(page.path)
   # echo pretty(%meta)
 
-  let article = extractArticleData(page.path)
-  echo %article
+  let article = extractArticleData(page)
+  echo article.createPageBody()
 
 #[
   page = initMetaPage(path).page

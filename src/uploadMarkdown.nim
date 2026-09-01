@@ -71,16 +71,3 @@ when isMainModule:
 
   let article = extractArticleData(page)
   echo article.createPageBody()
-
-#[
-  page = initMetaPage(path).page
-
-  creator = page.creator.username
-  pageInfo = initClassicalPage(path) # ページ情報取得
-  body = page.revision.body # サンプルページの本文
-  revisions = initMetaRevisions(page.id) # 編集履歴
-  authors: HashSet[Author.id] = toHashSet(revisions.authors())
-
-
-  # echo payload
-]#

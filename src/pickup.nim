@@ -137,11 +137,18 @@ func createPageBody*(a: ArticleData): string =
   {a.body}"""
 
 when isMainModule:
-  echo "=== ランダムに選んだページの内容==="
+  # echo "=== ランダムに選んだページの内容==="
   let pageList = randomPickup()
-  echo pretty(%pageList) # 整形JSON表示
+  # echo pretty(%pageList) # 整形JSON表示
 
-  echo "=== ピックアップページコンテンツの作成 ==="
-  let page: PageElement = pageList.pages[0]
-  let article = extractArticleData(page)
-  echo article.createPageBody()
+  # echo "=== ピックアップページコンテンツの作成 ==="
+  let randomPage: PageElement = pageList.pages[0]
+  let article = extractArticleData(randomPage)
+  # echo article.createPageBody()
+  let content: string = article.createPageBody()
+
+  echo "=== アップロードされたページのレスポンス ==="
+  const path = "/ピックアップ記事"
+  let pickupPage: MetaPage = initMetaPage(path)
+  let res = pickupPage.post(content)
+  echo parseJsonSafe(res.body)

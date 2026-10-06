@@ -469,7 +469,7 @@ proc subcmdGetPages(verbose = false, args: seq[string]): int =
 
 when is_main_module:
   import cligen
-  clCfg.version = "v0.1.3r"
+  clCfg.version = "v1.0.0"
 
   dispatchMulti(
     [subcmdGet, cmdName = "get", help = "growiapi get PATH"],

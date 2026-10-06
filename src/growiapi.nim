@@ -27,10 +27,10 @@ let URI = getEnv("GROWI_URL", "http://localhost:3000").parseUri()
 let CLIENT = newHttpClient()
 CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 
-## jsonReplace(): jsonフィールドを任意に変更する
-# underscoreをobjectのfield名にできない仕様のせいで
-# stringを一部underscoreなしにする
 proc jsonReplace*(body: string): string =
+  ## jsonReplace(): jsonフィールドを任意に変更する
+  ## underscoreをobjectのfield名にできない仕様のせいで
+  ## stringを一部underscoreなしにする
   return body.multiReplace(
     ("\"_id\":", "\"id\":")
   )

@@ -14,6 +14,7 @@ import strutils
 import sugar
 import tables
 import strformat
+import helper
 
 ## Get token from https://demo.growi.org/me
 let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
@@ -27,13 +28,6 @@ let URI = getEnv("GROWI_URL", "http://localhost:3000").parseUri()
 let CLIENT = newHttpClient()
 CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
 
-proc jsonReplace*(body: string): string =
-  ## jsonReplace(): jsonフィールドを任意に変更する
-  ## underscoreをobjectのfield名にできない仕様のせいで
-  ## stringを一部underscoreなしにする
-  return body.multiReplace(
-    ("\"_id\":", "\"id\":")
-  )
 
 type
   Author* = object
@@ -190,11 +184,14 @@ proc initMetaPage*(path: string, limit = 50): MetaPage =
 
 ## _api/pages.list で取得できるJSONオブジェクトのpages要素
 ## v3からは _api/v3/pages/list でも取得できる
+## NimからはgetPages().pages[0] で取得する他ない
 type PageElement* = object
   id*, path*, creator*, revision*: string
   liker*, seenUsers*: seq[string]
   commentCount*: int
 
+## ページの基本情報のリストを取得する
+## NimからはgetPages()で取得する他ない
 type PageList* = object
   pages*: seq[PageElement]
   totalCount*, offset*, limit*: int

@@ -18,6 +18,7 @@ import
   std/json,
   std/random,
   std/strutils,
+  helper,
   growiapi
 
 proc getTotalPageCount(): int =

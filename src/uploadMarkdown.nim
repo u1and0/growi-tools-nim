@@ -1,7 +1,6 @@
 import
   std/[strformat, strutils, sets],
-  growiapi,
-  pickup
+  growiapi, helper, pickup
 
 type ArticleData* = object
   ## 掲載記事のまとめデータ構造
@@ -18,18 +17,23 @@ type ArticleData* = object
 
   # revisions*: MetaRevisions
 
+func getTitle(path: string): string =
+  path.rsplit("/", 1)[1]
 
 proc extractArticleData*(pageElem: PageElement): ArticleData =
   ## 記事情報の取得とオブジェクト生成
   let
+    # パスとタイトルの基本情報を取得
     path = pageElem.path
-    title = path.rsplit("/", 1)[1]
+    title = getTitle(path)
+
+    # 作成者と内容
     metaPage = initMetaPage(path)
     page = metaPage.page
-    revisions = initMetaRevisions(page.id)
-    authors: HashSet[string] = revisions.authors()
 
-  echo pageElem
+    # 編集者数の算出
+    revisions = initMetaRevisions(pageElem.id)
+    authors: HashSet[string] = revisions.authors()
 
   result = ArticleData(
     title: title,
@@ -47,10 +51,10 @@ func createPageBody(a: ArticleData): string =
   fmt"""[[{a.title}>{a.path}]]
 
   <span class="badge badge-primary">作成者: {a.creatorName}</span>
-  <span class="badge badge-pink">ライク数: {a.likerNum}</span>
-  <span class="badge badge-orange">足跡数: {a.seenUsersNum}</span>
-  <span class="badge badge-teal">編集者数: {a.authorsNum}</span>
-  <span class="badge badge-indigo">コメント数: {a.commentCount}</span>
+  <span class="badge badge-danger">ライク数: {a.likerNum}</span>
+  <span class="badge badge-warning">足跡数: {a.seenUsersNum}</span>
+  <span class="badge badge-info">編集者数: {a.authorsNum}</span>
+  <span class="badge badge-success">コメント数: {a.commentCount}</span>
 
   {a.body}"""
   # <span class="badge badge-teal">編集者数: {len(a.authors)}</span>

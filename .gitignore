@@ -7,3 +7,5 @@ pickup
 /bin/
 /nimcache/
 Session.vim
+/src/
+!/src/*.nim

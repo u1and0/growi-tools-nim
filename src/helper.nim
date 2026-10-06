@@ -1,4 +1,4 @@
-import std/[json, httpclient, strutils]
+import std/[json, os, strutils]
 
 proc jsonReplace*(body: string): string =
   ## jsonReplace(): jsonフィールドを任意に変更する
@@ -8,10 +8,19 @@ proc jsonReplace*(body: string): string =
     ("\"_id\":", "\"id\":")
   )
 
-proc parseJsonSafe*(res: Response) =
+proc parseJsonSafe*(body: string): string =
+  ## response.body をJSONパースして整形表示
+  ## パースに失敗したらbodyをそのまま表示
   try:
-    let jsn = res.body.parseJson()
-    echo jsn.pretty()
+    let jsn = body.parseJson()
+    jsn.pretty()
   except JsonParsingError:
-    echo res.body
+    body
 
+proc readFilePath*(path: string): string =
+  ## pathがファイルパスとして存在していれば、
+  ## ファイルの内容を返す。
+  ## そうでなければ文字列そのままを返す
+  if fileExists(path):
+    return readFile(path)
+  return path

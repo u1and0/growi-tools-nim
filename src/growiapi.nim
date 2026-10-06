@@ -266,26 +266,16 @@ proc postProcessing(res: Response, v: bool): int =
   ## ステータスが200番台なら正常終了、
   ## そうでなければステータスコードとボディを表示して異常終了
   if v:
-    try:
-      echo res.body.parseJson().pretty()
-    except JsonParsingError:
-      echo res.body
+    let s = parseJsonSafe(res.body)
+    echo s
 
   if res.status.startsWith("2"):
     return 0
-  else:
-    if not v:
-      stderr.writeLine "error: API returned ", res.status
-      stderr.writeLine res.body
-      return 4
 
-proc parseBody(s: string): string =
-  ## bodyがファイルパスであれば、ファイルの内容を読む
-  ## そうでなければ文字列としてセット
-  if fileExists(s):
-    return readFile(s)
-  return s
-
+  if not v:
+    stderr.writeLine "error: API returned ", res.status
+    stderr.writeLine res.body
+    return 4
 
 # CLI実装
 proc subcmdGet(verbose = false, args: seq[string]): int =
@@ -305,7 +295,7 @@ proc subcmdPost(verbose = false, args: seq[string]): int =
     return 1
 
   let metaPage = initMetaPage(args[0])
-  let body = parseBody(args[1])
+  let body = readFilePath(args[1])
   let res: Response = metaPage.post(body)
 
   postProcessing(res, verbose)
@@ -322,7 +312,7 @@ proc subcmdUpdate(verbose = false, args: seq[string]): int =
     echo "error: not exist path. try `growiapi create PATH BODY`."
     return 2
 
-  let body = parseBody(args[1])
+  let body = readFilePath(args[1])
   let res: Response = metaPage.update(body)
 
   postProcessing(res, verbose)
@@ -339,7 +329,7 @@ proc subcmdCreate(verbose = false, args: seq[string]): int =
     echo "error: exist path. try `growiapi update PATH BODY`."
     return 2
 
-  let body = parseBody(args[1])
+  let body = readFilePath(args[1])
   # タイムアウト・通信エラー
   let res: Response =
     try:

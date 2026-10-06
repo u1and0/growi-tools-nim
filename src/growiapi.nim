@@ -9,6 +9,7 @@ import std/uri
 import std/os
 import std/httpclient
 import std/json
+import std/sets
 import strutils
 import sugar
 import tables
@@ -35,11 +36,32 @@ proc jsonReplace*(body: string): string =
   )
 
 type
+  Author* = object
+    id*, name*, username*, createdAt*: string
+
   ## _api/v3/page で取得できるJSONオブジェクトのrevision要素
+  ##
+  ## revisions/list のレスポンスの一部
+  ## .
+  ## ├── revisions [].
+  ## │     ├── _id <string>
+  ## │     ├── pageId <string>
+  ## │     ├── body <string>
+  ## │     ├── author
+  ## │     │   ├── name <string>
+  ## │     │   ├── username <string>
+  ## │     │   ├── _id <string>
+  ## │     │   ├── createdAt <string>
+  ## │     │   └── updatedAt <string>
+  ## │     └── createdAt <string>
   Revision* = object
     id*: string
-    body*: string
     pageId*: string
+    body*: string
+    author*: Author
+    createdAt*: string
+
+  Revisions* = seq[Revision]
 
   ## _api/v3/page で取得できるJSONオブジェクトのcreator要素
   Creator* = object
@@ -192,42 +214,52 @@ type PageList* = object
 #   result = collect(newSeq):
 #     for item in pages: item.path
 
-type
-  Author* = object
-    name, username, createdAt, id: string
-  Doc* = object
-    id*, pageId*, body*: string
-    author*: Author
-  Revisions* = object
-    docs*: seq[Doc]
-    page*: int
-    totalDocs*: int
-  MetaRevisions* = object
-    revisions: Revisions
-    pageId: string
-    page: int
+## MetaRevisions: revisions/list のレスポンス
+## 改変履歴のリスト
+##
+## .
+## ├── revisions [].
+## │     ├── _id <string>
+## │     ├── pageId <string>
+## │     ├── body <string>
+## │     ├── author
+## │     │   ├── name <string>
+## │     │   ├── username <string>
+## │     │   ├── _id <string>
+## │     │   ├── createdAt <string>
+## │     │   └── updatedAt <string>
+## │     └── createdAt <string>
+## ├── totalCount <int>
+## └── offset <int>
+type MetaRevisions* = object
+  revisions: Revisions
+  totalCount: int
+  offset: int
 
-proc get*(self: MetaRevisions): Response =
-  let q = {"access_token": TOKEN, "pageId": self.pageId, "page": $self.page}
+proc get*(self: MetaRevisions,
+  pageId: string,
+  page: int = 1, # selected page number
+  limit: int = 100, # page item limit
+): Response =
+  let q = {
+    "access_token": TOKEN,
+    "pageId": pageId,
+    "page": $page,
+    "limit": $limit,
+  }
   CLIENT.get(URI / "_api/v3/revisions/list" ? q)
 
-proc chain*(self: MetaRevisions): OrderedTable[Doc.id, Doc.body] =
+func chain*(self: MetaRevisions): OrderedTable[Revision.id, Revision.body] =
   collect(initOrderedTable(5)):
-    for doc in self.revisions.docs: {doc.id: doc.body}
+    for revision in self.revisions: {revision.id: revision.body}
 
-proc authors*(self: MetaRevisions): seq[Author.id] =
-  for doc in self.revisions.docs:
-    let a = try: doc.author.id except KeyError: continue
-    result.add(a)
+func authors*(self: MetaRevisions): HashSet[string] =
+  for r in self.revisions:
+    result.incl(r.author.name)
+
 
 proc initMetaRevisions*(id: string): MetaRevisions =
   result = MetaRevisions()
-  result.page = 0
-  result.pageId = id
-
-  let res = result.get()
-  let jsonStr = res.body.jsonReplace()
-  result.revisions = jsonStr.parseJson().to(Revisions)
 
 
 # ヘルパー関数群

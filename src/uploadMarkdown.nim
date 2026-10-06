@@ -1,24 +1,22 @@
 import
-  std/strformat,
-  std/sets,
-  std/strutils,
-  std/json,
+  std/[strformat, strutils, sets],
   growiapi,
   pickup
 
-## 掲載記事のまとめデータ構造
 type ArticleData* = object
-  title*: string
-  path*: string
-  creatorName*: string
-  body*: string
+  ## 掲載記事のまとめデータ構造
+  title*: string       ## Growiページのパスの/で区切られたパスの一番右
+  path*: string        ## Growiのページパス
+  creatorName*: string ## 作成者
+  body*: string        ## ページ内容
   commentCount*: int
-  # page element の情報を加工して得られる数値
-  likerNum: int
-  seenUsersNum: int
+  # page element の情報を加工して得られるデータ
+  likerNum*: int
+  seenUsersNum*: int
+  # revision の情報を加工して得られるデータ
+  authorsNum*: int
 
   # revisions*: MetaRevisions
-  # authors*: HashSet[string]
 
 
 proc extractArticleData*(pageElem: PageElement): ArticleData =
@@ -28,8 +26,10 @@ proc extractArticleData*(pageElem: PageElement): ArticleData =
     title = path.rsplit("/", 1)[1]
     metaPage = initMetaPage(path)
     page = metaPage.page
-    # revisions = initMetaRevisions(page.id)
-    # authors: HashSet[string] = toHashSet(revisions.authors())
+    revisions = initMetaRevisions(page.id)
+    authors: HashSet[string] = revisions.authors()
+
+  echo pageElem
 
   result = ArticleData(
     title: title,
@@ -39,8 +39,7 @@ proc extractArticleData*(pageElem: PageElement): ArticleData =
     commentCount: pageElem.commentCount,
     likerNum: len(pageElem.liker),
     seenUsersNum: len(pageElem.seenUsers),
-    # revisions: revisions,
-      # authors: authors
+    authorsNum: len(authors)
   )
 
 func createPageBody(a: ArticleData): string =
@@ -50,19 +49,16 @@ func createPageBody(a: ArticleData): string =
   <span class="badge badge-primary">作成者: {a.creatorName}</span>
   <span class="badge badge-pink">ライク数: {a.likerNum}</span>
   <span class="badge badge-orange">足跡数: {a.seenUsersNum}</span>
-  <span class="badge badge-teal">編集者数: 保留</span>
+  <span class="badge badge-teal">編集者数: {a.authorsNum}</span>
   <span class="badge badge-indigo">コメント数: {a.commentCount}</span>
 
   {a.body}"""
   # <span class="badge badge-teal">編集者数: {len(a.authors)}</span>
 
-# proc uploadPickupArticle(page: Page): Response =
+# proc uploadPickupArticle(body: string): Response =
 #   ## "/ピックアップ記事"ページに記事内容を投稿する
-#   let body = createPageBody(page)
 #   let pickupPage = initMetaPage("/ピックアップ記事")
 #   return pickupPage.post(body)
-#   # echo res.body.parseJson().pretty()
-#   # return res.body.parseJson()
 
 when isMainModule:
   let
@@ -71,3 +67,9 @@ when isMainModule:
 
   let article = extractArticleData(page)
   echo article.createPageBody()
+
+  # let revisions = initMetaRevisions(page.id)
+  # echo %revisions
+  # let res = uploadPickupArticle(content)
+  # echo res.body.parseJson().pretty()
+  # return res.body.parseJson()

@@ -6,7 +6,6 @@
 ##   # POST page body
 ##   growi /path/to/page "my test\nbody"
 import std/uri
-import std/os
 import std/httpclient
 import std/json
 import std/sets
@@ -14,20 +13,9 @@ import strutils
 import sugar
 import tables
 import strformat
+
 import helper
-
-## Get token from https://demo.growi.org/me
-let TOKEN = getEnv("GROWI_ACCESS_TOKEN")
-if TOKEN == "":
-  var e: ref KeyError
-  new(e)
-  e.msg = "アクセストークンが設定されていません"
-  raise e
-## https://demo.growi.org/
-let URI = getEnv("GROWI_URL", "http://localhost:3000").parseUri()
-let CLIENT = newHttpClient()
-CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
-
+import client
 
 type
   Author* = object

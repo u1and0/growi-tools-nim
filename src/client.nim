@@ -13,7 +13,5 @@ if TOKEN == "":
   e.msg = "アクセストークンが設定されていません"
   raise e
 
-let CLIENT* = newHttpClient()
-CLIENT.headers = newHttpHeaders({"Content-Type": "application/json"})
-
-
+let headers = newHttpHeaders({"Content-Type": "application/json"})
+let CLIENT* = newHttpClient(headers = headers)

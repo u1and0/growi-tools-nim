@@ -14,6 +14,20 @@ import std/[uri, os, strutils, strformat, sets, json, httpclient]
 import growiapi, helper, client
 import ranks
 
+const DOC = """
+Growi記事ランキング投稿
+
+usage:
+  $ ranking [SRC] [DST] [TOP]
+  $ ranking /growi/source/path /upload/path 5
+
+  SRC: default "". if empty, print as stdout.
+  DST: default "/". The Growi root page.
+  TOP: default 10.
+
+env: GROWI_ACCESS_TOKEN, GROWI_URL (client.nim が読込)
+build: nim c -d:ssl -d:release ranking.nim"""
+
 proc authorCount(pageId: string): int =
   ## 改版履歴(最大100件)の編集者数
   let res = MetaRevisions().get(pageId)
@@ -28,11 +42,14 @@ proc authorCount(pageId: string): int =
 
 proc collect(src: string): Ranks =
   for p in getAllPageElement(src):
-    result.add Rank(path: p.path, id: p.id,
-                    liker: p.liker.len,
-                    seen: p.seenUsers.len,
-                    commentCount: p.commentCount,
-                    authors: authorCount(p.id))
+    result.add Rank(
+      path: p.path,
+      id: p.id,
+      liker: p.liker.len,
+      seen: p.seenUsers.len,
+      commentCount: p.commentCount,
+      authors: authorCount(p.id),
+    )
 
 proc run(dst, src: string, top: int) =
   var ranks = collect(src)
@@ -75,6 +92,13 @@ proc run(dst, src: string, top: int) =
 
 when isMainModule:
   let a = commandLineParams()
+  if a.contains("-v") or a.contains("--version"):
+    echo VERSION
+    quit(0)
+  if a.contains("-h") or a.contains("--help"):
+    echo DOC
+    quit(0)
+
   run(dst = (if a.len > 1: a[1] else: ""), # 空の場合は標準出力へ
     src = (if a.len > 0: a[0] else: "/"), # 基本的に全てのページのランキング
     top = (if a.len > 2: parseInt(a[2]) else: 10)) # デフォルトでトップ10

@@ -1,14 +1,13 @@
-#[
-# Growi ピックアップ記事を抽出するモジュール
-# 全ページの中からランダムに1つのパスを選定し、下記を表示します。
-#   * タイトル( ページパス )
-#   * 作成者
-#   * ライク数
-#   * 足跡数
-#   * 編集者数
-#   * コメント数
-#   * 本文
-]#
+## Growi ピックアップ記事を抽出するモジュール
+##
+## 全ページの中からランダムに1つのパスを選定し、下記を表示します。
+##   * タイトル( ページパス )
+##   * 作成者
+##   * ライク数
+##   * 足跡数
+##   * 編集者数
+##   * コメント数
+##   * 本文
 import
   std/httpclient,
   std/json,
@@ -118,19 +117,48 @@ func createPageBody*(a: ArticleData): string =
 
   {a.body}"""
 
-when isMainModule:
-  # echo "=== ランダムに選んだページの内容==="
-  let pageList = randomPickup()
-  # echo pretty(%pageList) # 整形JSON表示
+proc main(debug = false, args: seq[string]): int =
+  ## Growi ピックアップ記事を抽出するコマンド
+  ##
+  ## 全ページの中からランダムに1つのパスを選定し、下記を表示します。
+  ##   * タイトル( ページパス )
+  ##   * 作成者
+  ##   * ライク数
+  ##   * 足跡数
+  ##   * 編集者数
+  ##   * コメント数
+  ##   * 本文
 
-  # echo "=== ピックアップページコンテンツの作成 ==="
+  # コマンドライン引数に "/" から始まるパスの指定が必要
+  if len(args) != 1:
+    raise newException(ValueError, "Specify at least 1 argument")
+  if not args[0].startsWith("/"):
+    raise newException(ValueError, "Must specify 'path'.( Begining from '/')")
+  let uploadPath = args[0]
+
+  # ランダムに選んだページの内容
+  let pageList = randomPickup()
+  if debug:
+    echo "[DEBUG]"
+    echo pretty(%pageList) # 整形JSON表示
+
+  # ピックアップページコンテンツの作成
   let randomPage: PageElement = pageList.pages[0]
   let article = extractArticleData(randomPage)
-  # echo article.createPageBody()
   let content: string = article.createPageBody()
+  if debug:
+    echo "[DEBUG]" & content
 
-  echo "=== アップロードされたページのレスポンス ==="
-  const path = "/ピックアップ記事"
-  let pickupPage: MetaPage = initMetaPage(path)
+  # 作成されたページのアップロード
+  if content.strip() == "":
+    raise newException(ValueError, "Empty contents")
+  let pickupPage: MetaPage = initMetaPage(uploadPath)
   let res = pickupPage.post(content)
-  echo parseJsonSafe(res.body)
+  echo parseJsonSafe(res.body) # アップロード後のレスポンス
+  return 0
+
+when isMainModule:
+  import cligen
+  clCfg.version = VERSION
+
+  dispatch(main)

@@ -61,7 +61,7 @@ type
   MetaPage* = object ## _api/v3/page で取得できるJSONオブジェクトとページの存在、エラーメッセージ
     page*: Page
     limit: int
-    exist: bool
+    exist*: bool
     error: string
 
 proc create*(self: MetaPage, body: string): Response =

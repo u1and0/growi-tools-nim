@@ -1,8 +1,8 @@
-## ranking.nim test
+## ranks.nim test
 ## run: nim c -r -d:ssl test_ranking.nim
 import std/[unittest, strutils]
 
-import ranking
+import ranks
 
 const origin = "https://demo.growi.org"
 

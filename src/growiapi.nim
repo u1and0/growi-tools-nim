@@ -17,7 +17,7 @@ import strformat
 import helper
 import client
 
-const VERSION* = "v1.0.0"
+const VERSION* = "v1.1.0"
 
 type
   Author* = object
@@ -205,9 +205,10 @@ proc getTotalPageCount*(): int =
 
 proc getAllPageElement*(path = "/", batchSize = 100): seq[PageElement] =
   ## 全てのページに対してPageElementを取得する。
-  var totalCount: int
+  var
+    totalCount: int
+    pageNum = 1
 
-  var pageNum = 1
   while true:
     # レスポンスをPageListへ解釈
     let res = getPages(path, batchSize, pageNum)
@@ -216,6 +217,9 @@ proc getAllPageElement*(path = "/", batchSize = 100): seq[PageElement] =
         let body = res.body.jsonReplace().parseJson()
         let pageList = body.to(PageList)
         if totalCount < 1:
+          if pageList.totalCount < 1: # 更新したのにまだ総ページ数0ならエラー
+            raise newException(IOError,
+            "getAllPageElement error: total count 0" & $pageList.totalCount)
           totalCount = pageList.totalCount
         let pages = pageList.pages
         if len(pages) < 1:
@@ -223,7 +227,8 @@ proc getAllPageElement*(path = "/", batchSize = 100): seq[PageElement] =
         # pagesプロパティだけを追加
         result.add(pages)
       else:
-        echo "getAllPageElement error" & $parseJson(res.body)["errors"]
+        raise newException(IOError,
+        "getAllPageElement error: " & $parseJson(res.body)["errors"])
 
     # pageプロパティを追加して次のループへ
     if pageNum * batchSize >= totalCount:

@@ -52,3 +52,16 @@ rev [optional-params] [args: string...]
 Options:
     --version      bool  false  print version
     -v, --verbose  bool  false  set verbose
+
+## Build
+
+```sh
+# check
+$ nim c --check growiapi.nim
+
+# dev
+$ nim c -g -d:debug growiapi.nim
+
+# release
+$ nim c -d:release -d:ssl --opt:speed growiapi.nim
+```

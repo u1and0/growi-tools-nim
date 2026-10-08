@@ -17,6 +17,8 @@ import strformat
 import helper
 import client
 
+const VERSION* = "v1.0.0"
+
 type
   Author* = object
     id*, name*, username*, createdAt*: string
@@ -384,7 +386,7 @@ proc subcmdGetPages(verbose = false, args: seq[string]): int =
 
 when is_main_module:
   import cligen
-  clCfg.version = "v1.0.0"
+  clCfg.version = VERSION
 
   dispatchMulti(
     [subcmdGet, cmdName = "get", help = "growiapi get PATH"],

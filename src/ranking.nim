@@ -10,9 +10,20 @@
 ##
 ## env: GROWI_ACCESS_TOKEN, GROWI_URL (client.nim が読込)
 ## build: nim c -d:ssl -d:release ranking.nim
-import std/[uri, os, strutils, strformat, sets, json, httpclient]
-import growiapi, helper, client
-import ranks
+import std/[uri,
+  strutils,
+  strformat,
+  sets,
+  json,
+  httpclient,
+  times,
+]
+import
+  growiapi,
+  helper,
+  client,
+  progress,
+  ranks
 
 proc authorCount(pageId: string): int =
   ## 改版履歴(最大100件)の編集者数
@@ -27,14 +38,23 @@ proc authorCount(pageId: string): int =
   authors.len
 
 proc collect(src: string): Ranks =
-  for p in getAllPageElement(src):
-    result.add Rank(path: p.path, id: p.id,
-                    liker: p.liker.len,
-                    seen: p.seenUsers.len,
-                    commentCount: p.commentCount,
-                    authors: authorCount(p.id))
+  stderr.writeLine "ページ一覧を取得中..."
+  let pages = getAllPageElement(src)
+  stderr.writeLine &"{pages.len} ページを集計します"
+  let t0 = epochTime()
 
-proc run(dst, src: string, top: int) =
+  for i, p in pages:
+    result.add Rank(
+      path: p.path,
+      id: p.id,
+      liker: p.liker.len,
+      seen: p.seenUsers.len,
+      commentCount: p.commentCount,
+      authors: authorCount(p.id),
+    )
+    showProgress(i+1, pages.len, t0)
+
+proc run(dst = "", src = "/", top = 10) =
   var ranks = collect(src)
   let origin = ($URI).strip(leading = false, chars = {'/'})
 
@@ -74,7 +94,14 @@ proc run(dst, src: string, top: int) =
     stderr.writeLine e.msg # 更新前後で内容が同じ場合など
 
 when isMainModule:
-  let a = commandLineParams()
-  run(dst = (if a.len > 1: a[1] else: ""), # 空の場合は標準出力へ
-    src = (if a.len > 0: a[0] else: "/"), # 基本的に全てのページのランキング
-    top = (if a.len > 2: parseInt(a[2]) else: 10)) # デフォルトでトップ10
+  import cligen
+  clCfg.version = VERSION
+
+  dispatch(run,
+  cmdName = "ranking",
+  help = {
+    "src": "ランキング集計元ページパス(空なら全てのページのランキング)",
+    "dst": "ランキング表示先ページパス(空なら標準出力に表示)",
+    "top": "ランキング上位数(デフォルトでトップ10)",
+  }
+  )

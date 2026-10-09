@@ -19,24 +19,6 @@ import
   helper,
   growiapi
 
-proc getTotalPageCount(): int =
-  ## Growiの記事総数を読み込み
-  ## レスポンスがJSONで受け取れなかったらエラーを吐く。
-  var res: Response
-  try:
-    res = getPages()
-  except CatchableError as e:
-    echo "Get response error", e.msg
-    return
-
-  var totalCount: string
-  try:
-    totalCount = $res.body.parseJson()["totalCount"]
-  except JsonParsingError:
-    echo res.status, res.body
-    return
-
-  return totalCount.parseInt()
 
 proc responseToPageList(res: Response): PageList =
   ## Response 型をJSONパースしてPageListオブジェクトへ

@@ -17,7 +17,7 @@ import strformat
 import helper
 import client
 
-const VERSION* = "v1.0.0"
+const VERSION* = "v1.1.0"
 
 type
   Author* = object
@@ -61,7 +61,7 @@ type
   MetaPage* = object ## _api/v3/page で取得できるJSONオブジェクトとページの存在、エラーメッセージ
     page*: Page
     limit: int
-    exist: bool
+    exist*: bool
     error: string
 
 proc create*(self: MetaPage, body: string): Response =
@@ -103,26 +103,79 @@ proc get*(self: MetaPage): Response =
   let q = {"access_token": TOKEN, "path": self.page.path}
   CLIENT.get(URI / "_api/v3/page" ? q)
 
+## _api/pages.list で取得できるJSONオブジェクトのpagesの1要素
+## v3からは _api/v3/pages/list でも取得できる
+## NimからはgetPages().pages[0] で取得する他ない
+type PageElement* = object
+  id*, path*, creator*, revision*: string
+  liker*, seenUsers*: seq[string]
+  commentCount*: int
+
+## ページの基本情報のリストを取得する
+## NimからはgetPages()で取得する他ない
+type PageList* = object
+  pages*: seq[PageElement]
+  totalCount*, offset*, limit*: int
+
 proc getPages*(
   path: string = "/",
   limit: int = 20,
   page: int = 1,
   ): Response =
-  ## ```sh
-  ## curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=872&limit=1" | jq -r
-  ## ```
-  ##
-  ## これで最初に作ったページを表示する(total count 872のとき)
-  ##
-  ## ```sh
-  ## curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=1&limit=1" | jq -r
-  ## ```
-  ##
-  ## これで最後に作られたページを表示する
-  ##
+  ## _api/v3/pages で取得できるJSONの構造
   ## limit: 表示するページの数、default 20, max 100
   ## path: 探索するページのルート
   ## page: オフセットと関係する。 だいたい offset = page x limit っぽい。
+  #
+  # # Sample curl command
+  #
+  # ```sh:最初に作ったページを表示する(total count 872のとき)
+  # curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=872&limit=1" | jq -r
+  # ```
+  #
+  # ```sh:最後に作られたページを表示する
+  # curl "http://192.168.160.118:3000/_api/v3/pages/list?access_token=$GROWI_ACCESS_TOKEN&path=/&page=1&limit=1" | jq -r
+  # ```
+  #
+  # # _api/v3/pages で取得できるJSONの構造
+  # .
+  # ├── pages [].
+  # │     ├── _id <string>
+  # │     ├── parent <string>
+  # │     ├── descendantCount <int>
+  # │     ├── isEmpty <bool>
+  # │     ├── status <string>
+  # │     ├── grant <int>
+  # │     ├── grantedUsers []null
+  # │     ├── liker []null
+  # │     ├── seenUsers []string
+  # │     ├── commentCount <int>
+  # │     ├── grantedGroups []null
+  # │     ├── updatedAt <string>
+  # │     ├── path <string>
+  # │     ├── creator <string>
+  # │     ├── lastUpdateUser
+  # │     │   ├── _id <string>
+  # │     │   ├── isGravatarEnabled <bool>
+  # │     │   ├── isEmailPublished <bool>
+  # │     │   ├── lang <string>
+  # │     │   ├── status <int>
+  # │     │   ├── admin <bool>
+  # │     │   ├── username <string>
+  # │     │   ├── email <string>
+  # │     │   ├── createdAt <string>
+  # │     │   ├── lastLoginAt <string>
+  # │     │   ├── imageUrlCached <string>
+  # │     │   └── name <string>
+  # │     ├── wip <bool>
+  # │     ├── ttlTimestamp <string>
+  # │     ├── createdAt <string>
+  # │     ├── __v <int>
+  # │     ├── latestRevisionBodyLength <int>
+  # │     └── revision <string>
+  # ├── totalCount <int>
+  # ├── offset <int>
+  # └── limit <int>
   let q = {
     "access_token": TOKEN,
     "path": path,
@@ -130,6 +183,57 @@ proc getPages*(
     "page": $page,
   }
   CLIENT.get(URI / "_api/v3/pages/list" ? q)
+
+proc getTotalPageCount*(): int =
+  ## Growiの記事総数を読み込み
+  ## レスポンスがJSONで受け取れなかったらエラーを吐く。
+  var res: Response
+  try:
+    res = getPages()
+  except CatchableError as e:
+    echo "Get response error", e.msg
+    return
+
+  var totalCount: string
+  try:
+    totalCount = $res.body.parseJson()["totalCount"]
+  except JsonParsingError:
+    echo res.status, res.body
+    return
+
+  return totalCount.parseInt()
+
+proc getAllPageElement*(path = "/", batchSize = 100): seq[PageElement] =
+  ## 全てのページに対してPageElementを取得する。
+  var
+    totalCount: int
+    pageNum = 1
+
+  while true:
+    # レスポンスをPageListへ解釈
+    let res = getPages(path, batchSize, pageNum)
+    case res.status:
+      of $Http200:
+        let body = res.body.jsonReplace().parseJson()
+        let pageList = body.to(PageList)
+        if totalCount < 1:
+          if pageList.totalCount < 1: # 更新したのにまだ総ページ数0ならエラー
+            raise newException(IOError,
+            "getAllPageElement error: total count 0" & $pageList.totalCount)
+          totalCount = pageList.totalCount
+        let pages = pageList.pages
+        if len(pages) < 1:
+          break
+        # pagesプロパティだけを追加
+        result.add(pages)
+      else:
+        raise newException(IOError,
+        "getAllPageElement error: " & $parseJson(res.body)["errors"])
+
+    # pageプロパティを追加して次のループへ
+    if pageNum * batchSize >= totalCount:
+      break
+    inc pageNum
 
 # pages.list がdeprecated になったようだ。使えない。
 # 相当するAPIも見つからない
@@ -171,20 +275,6 @@ proc initMetaPage*(path: string, limit = 50): MetaPage =
       result.exist = false
       result.error = $parseJson(res.body)["errors"]
       result.page.path = path
-
-## _api/pages.list で取得できるJSONオブジェクトのpages要素
-## v3からは _api/v3/pages/list でも取得できる
-## NimからはgetPages().pages[0] で取得する他ない
-type PageElement* = object
-  id*, path*, creator*, revision*: string
-  liker*, seenUsers*: seq[string]
-  commentCount*: int
-
-## ページの基本情報のリストを取得する
-## NimからはgetPages()で取得する他ない
-type PageList* = object
-  pages*: seq[PageElement]
-  totalCount*, offset*, limit*: int
 
 
 # proc initClassicalPage*(path: string): ClassicalPage =
